@@ -9,15 +9,6 @@ workdir: config['workdir']
 include: "includes/io.snk"
 include: "includes/utils.snk"
 
-# FILE SEARCH ###########
-#   included_files = tumor_normal_pairs = sample_types = None
-#  if not included_files:  # do this only once
-#  included_files, tumor_normal_pairs, sample_types = get_files(config['inputdir'])
-# included files : list of (fastq_path, sample, type, read, tumor/normal) tuples
-# tumor_normal_pairs : list of 'sample_tumor_normal' strings
-# sample_types : list of 'sample_type' strings
-
-
 # retrieve the file_df with all the file paths from the samplesheet
 sample_df, short_sample_df = get_files(config['inputdirs'], config['samples']['samplesheet'])
 chrom_list = get_chrom_list(config)
