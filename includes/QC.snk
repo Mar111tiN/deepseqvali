@@ -1,27 +1,3 @@
-rule fastqc:
-    input: get_fastq_input
-    output:
-        "fastqc/{sample}_{type}_{readtrim}_fastqc.zip"
-    threads: 4
-    log:
-        "logs/fastqc/{sample}_{type}_{readtrim}.log"
-    conda:
-        f"../{config['envs']}/fastQC-env.yml"
-    script:
-        "../scripts/fastQC.py"
-
-
-rule fastq_multiQC:
-    input:
-        get_fastqc_list
-    output:
-        "QC/fastQC.html"
-    threads: 2
-    conda:
-        f"../{config['envs']}/fastQC-env.yml"
-    shell:
-        "multiqc -f -o QC/ -n fastQC --interactive fastqc/; "  # interactive for big number of files
-        "rm -f fastqc/*_fastqc.html fastq/*.sub"  # leave the zip files for accumulated multiQC of all processed samples
 
 
 # ####################### BAM QC ########################################

@@ -1,36 +1,32 @@
 rule dedup:
     input:
-        "bam_merge/{sample}_{type}.{chrom}.bam"
+        "mapped/{sample}.bam"
     output:
-        "deduped/{sample}_{type}.{chrom}.bam"
-    log:
-        "logs/dedup/{sample}_{type}.{chrom}.log"
+        "deduped/{sample}.bam"
     params:
-        metric = lambda w: f"deduped/{w.sample}_{w.type}.{w.chrom}.metric.txt",
+        metric = lambda w: f"deduped/{w.sample}.metric.txt",
         deflater = "use_jdk_deflater=true use_jdk_inflater=true" if config['alignment']['use_jdk'] else ""
     threads:
         config['dedup']['threads']
     conda:
         f"../{config['envs']}/align-env.yml"
     shell:
-        "picard MarkDuplicates {params.deflater} I={input} O={output} M={params.metric} CREATE_INDEX=true REMOVE_DUPLICATES=true &>{log}"
+        "picard MarkDuplicates {params.deflater} I={input} O={output} M={params.metric} CREATE_INDEX=true REMOVE_DUPLICATES=true"
 
 
 rule dedup_umi:
     input:
-        "bam_merge/{sample}_{type}.{chrom}.bam"
+        "mapped/{sample}.bam"
     output:
-        "umi_deduped/{sample}_{type}.{chrom}.bam"
+        "umi_deduped/{sample}.bam"
     threads:
         int(config['dedup_umi']['max_mem'].strip('g'))
-    log:
-        "logs/dedup/{sample}_{type}.{chrom}.log"
     conda:
         f"../{config['envs']}/align-env.yml"
     params:
-        metric = lambda w: f"umi_deduped/{w.sample}_{w.type}.{w.chrom}.metric.txt",
-        umi_metrics = lambda w: f"umi_deduped/{w.sample}_{w.type}.{w.chrom}.umi_metric.txt",
+        metric = lambda w: f"umi_deduped/{w.sample}.metric.txt",
+        umi_metrics = lambda w: f"umi_deduped/{w.sample}.umi_metric.txt",
         max_mem = config['dedup_umi']['max_mem'],
         remove_dups = "false" if config['dedup_umi']['keep_dups'] else "true"
     shell:
-        "picard UmiAwareMarkDuplicatesWithMateCigar -Xms500m -Xmx{params.max_mem} CREATE_INDEX=true UMI_METRICS={params.umi_metrics} I={input} O={output[0]} M={params.metric} ASSUME_SORTED=true REMOVE_DUPLICATES={params.remove_dups}; " # &>{log}
+        "picard UmiAwareMarkDuplicatesWithMateCigar -Xms500m -Xmx{params.max_mem} CREATE_INDEX=true UMI_METRICS={params.umi_metrics} I={input} O={output[0]} M={params.metric} ASSUME_SORTED=true REMOVE_DUPLICATES={params.remove_dups}; "

@@ -1,8 +1,8 @@
 rule get_fastq:
     input:
-        get_fastqs  # looks up samples from file_list
+        get_fastq  # looks up samples from file_list
     output:
-        "fastq/{sample}_{type}_{read_or_index}.fastq.gz"
+        "fastq/{sample}_{read}.fastq.gz"
     threads: 
         config['fastq']['threads']
     wildcard_constraints:
@@ -11,30 +11,24 @@ rule get_fastq:
         "../scripts/get_fastq.py"
 
 
-rule split_fastq:
-    input:
-        "fastq/{sample}_{type}_{read_or_index}.fastq.gz"
-    output:
-        expand("fastq/{{sample}}_{{type}}_{{read_or_index}}.{split}.fastq", split=list(range(config['fastq']['split_factor'])))
-    threads: 1
-    params:
-        split_factor = config['fastq']['split_factor'],
-        split_tool = get_script('split_fastq'),
-        output_base = lambda w, input: str(input).replace(".fastq.gz", "")
+rule fastqc:
+    input: "fastq/{sample}_{read}.fastq.gz"
+    output: "fastqc/{sample}_{read}_fastqc.zip"
+    threads: 4
     conda:
-        "../env/compress-env.yml"
+        f"../{config['envs']}/fastQC-env.yml"
     shell:
-        "{params.split_tool} {input} {params.split_factor} {params.output_base}"
+        "fastqc {input} -o fastqc/ "
 
 
-rule compress_split_fastq:
+rule fastq_multiQC:
     input:
-        "fastq/{sample}_{type}_{read}.{split}.fastq"
+        get_fastqc_list
     output:
-        "fastq/{sample}_{type}_{read}.{split}.fastq.gz"
-    threads: 
-        config['fastq']['threads']
+        "QC/fastQC.html"
+    threads: 2
     conda:
-        "../env/compress-env.yml"
+        f"../{config['envs']}/fastQC-env.yml"
     shell:
-        "pigz -5 -p {threads} {input}"
+        "multiqc -f -o QC/ -n fastQC --interactive fastqc/; "  # interactive for big number of files
+        "rm -f fastqc/*_fastqc.html fastq/*.sub"  # leave the zip files for accumulated multiQC of all processed samples
