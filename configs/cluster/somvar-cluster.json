@@ -57,14 +57,13 @@
   "apply_BQSR": {
     "t": "00:45"
   },
-  "filter_bam": {
-    "t": "00:45",
-    "mem": 200,
-    "name": "{rule}:{wildcards.sample}_{wildcards.tumor}-{wildcards.normal}_{wildcards.type}"
-  },
   "IGVnav": {
     "t": "00:05",
     "mem": 100,
     "name": "{rule}:{wildcards.sample}_{wildcards.tumor}-{wildcards.normal}"
+  },
+  "detect_VAF": {
+    "t": "00:20",
+    "mem": 20
   }
 }

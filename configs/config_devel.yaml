@@ -96,6 +96,10 @@ UMI_filter:
         max_error_rate_per_base: 0.1
         min_Q: 30 # input base quality
         max_no_call: 0.1 # fraction of reads filtered per M/e
-mpileup:
+VAFdetect:
+    remove_dups: false
     Q: 25   # base quality
     MAPQ: 20 # -q in pileup
+    threads: 6
+    minVAF: 0 # minimum VAF for VAF output
+    minDepth: 5

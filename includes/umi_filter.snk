@@ -8,8 +8,6 @@ rule umi_group:
         config['UMI_filter']['group']['threads']
     conda:
         "../env/ubam-env.yml"
-    log:
-        "logs/umi/{sample}_{type}.{chrom}.UG.log"
     params:
         mem = f"-Xmx{config['UMI_filter']['group']['mem']}",
         strategy = config['UMI_filter']['group']['group_strategy'],

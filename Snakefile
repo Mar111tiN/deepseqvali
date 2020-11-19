@@ -16,15 +16,14 @@ include: "includes/utils.snk"
 sample_df, short_df, mut_df = get_files(config['inputdirs'], config['samples']['samplesheet'])
 chrom_list = get_chrom_list(config)
 
-# ############ INCLUDES ##############################  
+# ############## INCLUDES ################################################
 include: "includes/fastq.snk"
 include: "includes/map.snk"
 include: "includes/processBAM.snk"
 include: "includes/dedup.snk"
 include: "includes/umi_filter.snk"
+include: "includes/VAF.snk"
 
-# convenience variables
-ref_gen = full_path('genome')
 # specified wildcards have to match the regex
 wildcard_constraints:
     # eg sample cannot contain _ or / to prevent ambiguous wildcards
@@ -40,10 +39,11 @@ wildcard_constraints:
 rule all:
     input:
         "QC/fastQC.html",
-        expand("recalib/{sample}.bam", sample=sample_df.index)
+        expand("vaf/{sample}.csv", sample=sample_df.index),
+        expand("IGVnav/{sample}.txt", sample=sample_df.index),
+        "results.txt"
 
 ###########################################################################
-
 # print out of installed tools
 onstart:
     print("    EXOM SEQUENCING PIPELINE STARTING.......")

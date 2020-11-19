@@ -1,0 +1,61 @@
+rule detect_VAFs:
+    input: 
+        bam = "recalib/{sample}.bam",
+        bai = "recalib/{sample}.bai"
+    output:
+        vafs = "vaf/{sample}.csv"
+    params: 
+        bed_file = get_bedfile_maker(folder='bed'), # writes bedfile,
+        cleanSNP = os.path.join(snakedir, "scripts/shell/cleanSNP.mawk"),
+        snpVAF = os.path.join(snakedir, "scripts/shell/snpVAF.mawk"),
+        ref = full_path('genome'),
+        q = config['VAFdetect']['MAPQ'],
+        Q = config['VAFdetect']['Q'],
+        minVAF = config['VAFdetect']['minVAF'],
+        ff = "UNMAP,SECONDARY,QCFAIL" + config['VAFdetect']['remove_dups'] * 'DUP'
+    conda:
+        f"../{config['envs']}/align-env.yml"
+    threads:
+        config['VAFdetect']['threads']
+    shell:
+        "samtools mpileup --ff {params.ff} -q {params.q} -Q {params.Q} -f {params.ref} -l {params.bed_file} {input.bam} | "
+        "{params.cleanSNP} | {params.snpVAF} {params.minVAF} > {output.vafs}"
+
+rule combine:
+    input:
+        vafs = expand("vaf/{sample}.csv", sample=sample_df.index)
+    output: "results.txt"
+    threads: 1
+    run:
+        dfs = []
+        for vaf_file in input.vafs:
+            # extract the sample name from vaf file
+            sample = vaf_file.split('/')[1].replace('.csv', '')
+            # load the file and rename Alt
+            df = pd.read_csv(vaf_file, sep='\t').rename(dict(Alt='calledAlt'), axis=1)
+            df.loc[:, 'sample'] = sample
+            dfs.append(df)
+        vaf_df = pd.concat(dfs)
+
+        # merge into mut_df and write to file
+        result_df = mut_df.merge(vaf_df, on=['sample', 'Chr', 'Start', 'Ref'], how='left').sort_values(['sample', 'Chr', 'Start'])
+        for col in ['Depth', 'calledAlt', 'VAF']:
+            result_df.loc[:, col] = result_df[col].fillna(0)
+        show_output(f'Writing combined results to {str(output)}', color='success')
+        result_df.to_csv(str(output), index=False, sep='\t')
+        
+
+rule IGV_nav:
+    input:
+        bam = "recalib/{sample}.bam"
+    output:
+        IGVnav = "IGVnav/{sample}.txt"
+    threads: 1
+    run:
+        sample = wildcards.sample
+        df = mut_df.query('sample == @sample').loc[:, ['Chr', 'Start', 'End']]
+        for col in ['Call', 'Tags', 'Notes']:
+            df[col] = ''
+        df.loc[:, 'Chr'] = df['Chr'].str.replace('chr', '')
+        df.to_csv(str(output), sep='\t', index=False)
+        show_output(f"Written to {output.IGVnav}")

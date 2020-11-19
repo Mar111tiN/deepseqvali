@@ -7,6 +7,7 @@ mawk ' # cat - <(echo "STOP\n") $SNP |   ###### if the SNP markers are necessary
 ## $5 ~ /[.,]*[ACTG]+[.,]*/ | mawk    # if you only want to output mutant positions (complete the quotes!!)
 NR == 1 { 
     minVAF="'${1-0}'";
+    print("minVAF:", minVAF)
     ###### QUERY ##############
     # get the letters to look for
     len = split("Aa,Gg,Cc,Tt,Dd,Ii",Letters,",")
@@ -35,7 +36,7 @@ NR == 1 {
             vaf =maxcount/$4;
         } 
     }
-    if (vaf > minVAF) {
+    if (vaf >= minVAF) {
         # I want chr in chromosomes
         if ($1 !~ "chr") {
             $1 = "chr" $1;
