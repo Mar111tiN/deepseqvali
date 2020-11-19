@@ -38,7 +38,12 @@ rule combine:
         vaf_df = pd.concat(dfs)
 
         # merge into mut_df and write to file
-        result_df = mut_df.merge(vaf_df, on=['sample', 'Chr', 'Start', 'Ref'], how='left').sort_values(['sample', 'Chr', 'Start'])
+        result_df = mut_df.drop('Ref', axis=1).merge(vaf_df, on=['sample', 'Chr', 'Start'], how='left')
+        # make Chr column categorical for sorting .. and sort
+        chrom_list = [f"chr{i}" for i in range(23)] + ['chrX', 'chrY']
+
+        result_df['Chr'] = pd.Categorical(result_df['Chr'], chrom_list)
+        result_df = result_df.sort_values(['sample', 'Chr', 'Start'])
         for col in ['Depth', 'calledAlt', 'VAF']:
             result_df.loc[:, col] = result_df[col].fillna(0)
         show_output(f'Writing combined results to {str(output)}', color='success')
