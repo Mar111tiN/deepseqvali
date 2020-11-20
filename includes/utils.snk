@@ -155,7 +155,7 @@ def reduce_regions(df, padding):
     return df.reset_index('gap').drop(columns='gap')
 
 
-def mut2bed(mut_df, padding, output):
+def get_region_bed(mut_df, padding, output):
     # get the bedfile with padded and collapsed regions
     bed_df = reduce_regions(mut_df.sort_values(
         ['Chr', 'Start']).iloc[:, :5], padding)

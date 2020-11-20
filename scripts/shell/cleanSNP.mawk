@@ -2,6 +2,7 @@
 
 ### cleans output from samtools mpileup (for one sample) and only returns Chr, Start, and the read data
 # Chr   Start   Depth Read1
+# if you only want actual snps, uncomment the last pipe
 # this can be done with pon2cols tool or deliberate cutting
 # removes from all reads the traces of base location and indel lengths
 
@@ -38,4 +39,6 @@ mawk '
         printf("%s\t",$i);
     };
     printf("%s\n",read);
-}' | mawk '$5 ~ /[.,]*[ACTGDI]+[.,]*/'   # only output actual SNPs
+}' 
+
+#  | mawk '$5 ~ /[.,]*[ACTGDI]+[.,]*/'   # only output actual SNPs

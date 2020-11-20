@@ -7,7 +7,7 @@ mawk ' # cat - <(echo "STOP\n") $SNP |   ###### if the SNP markers are necessary
 ## $5 ~ /[.,]*[ACTG]+[.,]*/ | mawk    # if you only want to output mutant positions (complete the quotes!!)
 NR == 1 { 
     minVAF="'${1-0}'";
-    print("minVAF:", minVAF)
+    print("minVAF:", minVAF) >> "/dev/stderr";
     ###### QUERY ##############
     # get the letters to look for
     len = split("Aa,Gg,Cc,Tt,Dd,Ii",Letters,",")
@@ -28,6 +28,7 @@ NR == 1 {
   # loop through the letters
     maxcount = 0;
     base = "";
+    vaf = 0;
     # first line extra for pretty
     for (l=0;l++<len;) {
         if (COUNT[l] > maxcount) {
@@ -43,5 +44,5 @@ NR == 1 {
         }
         printf("%s\t%s\t%s\t%s\t",$1,$2,$3,$4);
         printf("%s%s\t%s\n", base,maxcount,vaf);
-    } 
+    }
 }'
