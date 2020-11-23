@@ -107,6 +107,6 @@ targetCov:
     padding: 25 # how many bases around InsertRange is considered target
     MAPQ: 20 # -q in pileup
     rolling_window: 10
-    threads: 6
+    threads: 5
     minCov: 10  # minimum coverage for output
     remove_dups: false

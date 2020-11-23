@@ -6,16 +6,14 @@
 # works only on stdin in a pipe
 
 bedFile=$1;
-echo "STOPBED" > stop.file
+# create random filename
+suffix=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 10);
+stopfile=stop.${suffix}.txt;
+echo "STOPBED" > $stopfile
 
-cat ${bedFile} stop.file - | mawk '
+cat ${bedFile} $stopfile - | mawk '
 BEGIN {
     ## INIT ######
-    # useExonicCoords 
-    useExonicCoords='${3-0}';
-    if (useExonicCoords == 1) {
-        printf("filterBed>> Printing out exonic coordinates\n") > "/dev/stderr";
-    }
     # get filter chrom as arg3 for matching in filterBed file
     # "7" --> chr7
     # default ""  --> chr
@@ -42,24 +40,18 @@ readBed {
         bedCount++;
         # next chrom in case filterChrom is "chr"
         if ($1 != currentChrom) {
-            exonicCoord=0; # the current accumulated exon base count 
             CHROMEND[currentChrom] = bedCount - 1 # fix the last bedPointer for each chrom
             currentChrom = $1;
             CHROMSTART[currentChrom] = bedCount; # for every newly encountered chromosome, create a marker for the bedPointer
             CHROMNAME[bedCount] = currentChrom; # for that position, remember the chrom name
             CHROMCOUNT[chromCount++] = currentChrom;
-        }
-        
+        } 
         BEDSTART[bedCount] = $2;
         BEDEND[bedCount] = $3;
-        # exonicCoord will be increased by the length of the bed fragment
-        # BEDSUM marks the exonic coords of the bed fragments end (defined by bedCount)
-        exonicCoord = exonicCoord + $3 - $2;
         # #####
         # print(bedCount,BEDSTART[bedCount], BEDEND[bedCount], exonicCoord, BEDSUM[bedCount]);
         # #####
 
-        BEDSUM[bedCount] = exonicCoord;
     } else { # reached end of bedfile
             # switch to HEADER mode
             readBed = 0;
@@ -81,10 +73,7 @@ writeHeader { # check for existence of header and print out
   # }
     if ($0 ~ "Chr\t") { 
         printf($0);
-        if (useExonicCoords == 1) {
-            printf("\tExonPos");
-        }
-            printf("\n");
+            printf("\tonTarget\n");
             next;
         } else { # move on to readData on same line
             print("<filterBedAll> No header detected") > "/dev/stderr";
@@ -98,37 +87,58 @@ readData {  # switching to data
     pos=$2;
     
     # check if chrom is contained in bedfile
-    if (chrom in CHROMSTART == 0) next;
+    if (chrom in CHROMSTART == 0) {
+        # if not --> offTarget
+        printf("%s\t0\n", $0);
+        next;
+    }
     # move to the right chromosome in the read file
     # should best be already done in the samtools file
     while (chrom != currentChrom) {
         currentChrom = CHROMCOUNT[++chromeCount];
         bedPointer = CHROMSTART[currentChrom];
+        # reset the chromosome flush if new chromosome has been reached
+        chromflush = 0;
     }
-  
-    # cycle through the bedRegions
-    while (pos >= BEDSTART[bedPointer] ) { # if pos downstream of current bedRegion, drop line silently
-        #print(bedPointer, BEDSTART[bedPointer], BEDEND[bedPointer], pos);
+    if (chromflush) {
+        printf("%s\t0\n", $0);
+        next;        
+    }
+
+    # cycle through the bedRegions as long as they are in current chrom
+    while (bedPointer <= CHROMEND[currentChrom]) {
+        # get everything upstream of first bedPointer as offTarget
+        if (pos < BEDSTART[bedPointer]) {
+            printf("%s\t0\n", $0);
+            next;
+        }
+
+        if (pos <= BEDEND[bedPointer]) {
+            # within current BEDcoords is onTarget
+            printf("%s\t1\n", $0);
+            next;
+        }
+        # if pos downstream of current bedRegion, go to next bedRegion
         if (pos > BEDEND[bedPointer]) { # step to next bedRegion
             bedPointer++;
             # if all bedRegions have been read, stop output
-            if (bedPointer > bedCount) exit 0;
-            # if bedpointer is in next chrom, skip
-            if (bedPointer > CHROMEND[currentChrom]) next;
-        } else { # write to file
-            # DEBUG############
-            # print(bedPointer, BEDSUM[bedPointer], BEDSTART[bedPointer], BEDEND[bedPointer]);
-            # DEBUG ########## 
-            # print the base data
-            printf($0);
-            if (useExonicCoords==1) {
-                exonicCoord=BEDSUM[bedPointer] - BEDEND[bedPointer] + pos;
-                printf("\t%s", exonicCoord);
+            if (bedPointer > bedCount) {
+                # stop analysing data
+                printf("%s\t0\n", $0);
+                readData = 0;
+                # print out remaining data
+                flush = 1;
+                next;
             }
-            printf("\n"); 
-            break; 
         }
     }
+    # if bedpointer is in next chrom, flush rest of the data
+    printf("%s\t0\n", $0);
+    chromflush = 1;
+}
+
+flush { # after last bedPointer has been reached, flush out the remaining data
+    printf("%s\t0\n", $0);
 }'
 # cleanup
-# cd rm stop.file;
+rm $stopfile;

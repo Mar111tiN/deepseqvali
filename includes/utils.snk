@@ -120,6 +120,9 @@ def get_snp_bedfile(mut_df, folder=''):
     get_bedfile maker: partial function usable as callback in params
     '''
 
+    if not os.path.isdir(folder):
+        os.makedirs(folder)
+
     def get_bedfile(sample):
         '''
         selects the sample from mut_df and returns a bed-file for samtools

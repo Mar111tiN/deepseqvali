@@ -20,9 +20,4 @@ rule targetCov:
         config['targetCov']['threads']
     shell:
         "samtools view{params.drop_dups} -q {params.q} {input.bam} | "
-        "{params.bamCoverage} | {params.rollingCoverage} {params.window} > {output.vafs}"
-
-
-
-    # # the 1 at the end is the option for the filterbed tool to output exonic coords
-    # cov_cmd += f"{s('filterBed.mawk')} {config['bedfile']} {chrom} 1"
+        "{params.bamCoverage} | {params.rollingCoverage} {params.window} | {params.markBed} {params.bed_file} > {output.vafs}"

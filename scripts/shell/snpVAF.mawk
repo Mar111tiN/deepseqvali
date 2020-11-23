@@ -5,6 +5,8 @@
 ### cleans samtools mpileup output 
 mawk ' # cat - <(echo "STOP\n") $SNP |   ###### if the SNP markers are necessary, they have to be read in here 
 ## $5 ~ /[.,]*[ACTG]+[.,]*/ | mawk    # if you only want to output mutant positions (complete the quotes!!)
+
+
 NR == 1 { 
     minVAF="'${1-0}'";
     print("minVAF:", minVAF) >> "/dev/stderr";

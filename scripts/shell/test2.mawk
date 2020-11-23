@@ -1,133 +1,76 @@
-#!/fast/users/szyskam_c/work/miniconda/bin/mawk -f
+#!/bin/sh
 
-BEGIN {
-    # get the minCoverage
-    minCov = (ARGV[1] == "") ? 0 : ARGV[1];
-    # ARGV has to be reset to "" or ARGV[1] will be read as file
-    ARGV[1] = "";
-    cigPat = "^[0-9]+[NMDIS]";  
-    # init pointer and coverage
-    cov = 0;
-    }
-    
-function flush( COVscan, cov, minCov, start,  i, sorted, len) {
-    ########## OUTPUT PREVIOUS ##############
-    # get intermediate array COValt for summing up and down 
-    # and delete consumed up and down
-    # if position is not passed, it will be 0 and a total flush will be performed
-    for (p in COVscan) {
-        if (p < start) {
-            COValt[p] = COValt[p] + COVscan[p];
-            delete COVscan[p];
-        }
-    }
+# ################ GENOMIC ROLLING COVERAGE ##############
+# takes the output from chromCoverage and outputs the rolling average coverage per 100 (default) bases
+# takes frame with rows Chr Pos Coverage
 
-    ######## SORT COValt #####
-    len=length(COValt);
-
-    # make index array COVsort[1] = pos1...
-    for (p in COValt) {
-        COVsort[++i]=p;
-        #########
-        # printf("indexing: i=%s COVsort[%s]=%s p=%s\n", i, i, COVsort[i], p) >> "/dev/stderr";
-        #########
-    }
-    # keep sorting until sorted
-    while (sorted != 1 && len>1) {
-        # presume it is sorted
-        sorted = 1;
-        for (i=1;i++<len;) {
-            #########
-            # printf("Sorting: i=%s %s i=%s %s\n", i-1, COVsort[i-1], i, COVsort[i]) >> "/dev/stderr";
-            #########
-
-            # if first is smaller then last, swap
-            if (COVsort[i-1] > COVsort[i]) {
-                tmp = COVsort[i];
-                COVsort[i] = COVsort[i-1];
-                COVsort[i-1] = tmp;
-                # set unsorted
-                sorted = 0;
-            }
-        }
-    }
-    ########## PRINT OUT DATA #############
-    for (i=0;i++<len;) {
-        p = COVsort[i];
-        # add the sorted coverage change to the running cov
-        cov += COValt[p];
-
-        ########
-        # print("COValt", p, COValt[p], "cov", cov)
-        ########
-
-        delete COValt[p];
-        if (cov >= minCov) {  # this makes it sparse output
-            printf("%s\t%s\t%s\n", chrom, p,cov);     
-        } 
-    }
-    return cov; 
-}
- 
+mawk '
 NR == 1 {
-    currentChrom = $3;
-    # print Header
-    printf("%s\t%s\t%s\n","Chr","Pos","Coverage");
-}
-
-####### DATA FLUSH @ CHROM JUMP ########
-$3 != currentChrom {
-    # print("CHROM FLUSH", currentChrom) >> "/dev/stderr";
-    currentChrom = $3;
-    cov = flush(COVscan,cov, minCov)
-}
-
-# look at all hits
-$6 !~ /\*/ {
-    # get the data
-    chrom = $3;
-    # I want chr everywhere
-    if (chrom !~"chr") {
-        chrom = "chr" chrom;
+  width=int("'${1:-100}'" / 2) * 2; # parameter for the rolling scope (default = 100)
+  half=width / 2;
+  # get the coords for the fields
+  # for flexible data structures
+  n = split("Chr,Pos,Coverage",FIELDS,",");
+  for (col in FIELDS) {
+    for (i = 0; i++ < NF;) {
+      if ($i == FIELDS[col]) {
+        COORD[FIELDS[col]]=i;
+      }
     }
+  } 
+  # print Header
+  printf("%s\t%s\t%s\n","Chr","Pos","Coverage");
+}
 
-    start = $4; # start of current view window
-    cigar = $6;
+# special for the first data row
+NR == 2 { 
+  ##### INIT ###########
+  # READ LINE
+  lastPos=$COORD["Pos"];
+  lastCov=$COORD["Coverage"];
+  # posCenter is the middle between sumL and sumR
+  posCenter=int(lastPos / half) * half;
+}
 
-    ###########
-    # print("READ", start, cigar);
-    ###########
-    cov = flush(COVscan, cov, minCov, start);
-    ########## CIGAR SCAN ###############
-    readPos = start # readPos is current read position during cigar parse
-    # get the start end end coords for the coverage from the cigar
-    while (match(cigar, cigPat)) {
-        # length of cigar block
-        l = substr(cigar,RSTART,RLENGTH-1)
-        # type of cigar block
-        t = substr(cigar,RSTART+RLENGTH-1,1)
-        # if match block, push coords into coverage array
-        if (t == "M") {
-        # with every read, total coverage increases by one between start and end
-        COVscan[readPos] ++;
-        readPos += l; # readPos is moved up by the length of the Mcigar
+NR > 2 {
+  # READ LINE
+  chrom=$COORD["Chr"];
+  pos=$COORD["Pos"];
+  cov=$COORD["Coverage"];
 
-        #####
-        # print(start, " +1 - ", readPos, " -1");
-        #####
+  # first check, whether a posCenter border has been crossed
+  # sumL is left of posCenter [posCenter-half..posCenter)
+  # sumR is right of posCenter including posCenter [posCenter..posCenter + half)
 
-        COVscan[readPos] --; # coverage goes down at new start pos
-        # jump down over intron gaps
-        } else if (t ~ /[ND]/) {
-        readPos += l; # N and D result in no coverage
-        }
-        # reduce cigar string
-        cigar = substr(cigar, RSTART+RLENGTH);
+
+  if (pos >= posCenter + half) { # jumped over a border 
+      # fill up sumB
+      sumR += lastCov * (half - lastPos + posCenter);
+      covMean = (sumL + sumR) / width;
+      printf("%s\t%s\t%s\n",chrom,posCenter, covMean);
+
+    if (pos >= posCenter + width) { # stepped over two borders
+      # spill the right side coverage
+      sumL = lastCov * half;
+      covMean = (sumR + sumL) / width;
+      printf("%s\t%s\t%s\n",chrom,posCenter + half,covMean);
+      posCenter=int(pos / half) * half;
+  
+    } else { # stepped over one border
+      # step up the posCenter and fill sumR
+      posCenter = posCenter + half;
+      sumL = sumR;
     }
-  # get the current window's end position
-}
-
-END { # spill out all the remaining data arrays
-    # print("END FLUSH") >> "/dev/stderr";
-    flush(COVscan, cov, minCov);
-}
+    sumR = lastCov * (pos - posCenter + 1);
+  } else { # did not jump a border
+    sumR += lastCov * (pos - lastPos);
+  }
+  lastCov = cov;
+  lastPos = pos;
+  # printf("Pos: %s\tCov: %s\tsumL: %s\tsumR: %s\n",pos, cov, sumL, sumR);
+ }
+ END {
+   print(posCenter,sumL, sumR)
+   printf("%s\t%s\t%s\n",chrom,posCenter,(sumL + sumR) / width);
+   printf("%s\t%s\t%s\n",chrom,posCenter + half, sumR / width);
+ }'
