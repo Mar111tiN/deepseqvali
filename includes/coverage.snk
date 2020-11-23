@@ -1,0 +1,28 @@
+rule targetCov:
+    input: 
+        bam = "recalib/{sample}.bam",
+        bai = "recalib/{sample}.bai"
+    output:
+        vafs = "cov/{sample}.csv"
+    params: 
+        bed_file = get_coverage_bedfile(folder='bed', mut_df=mut_df, pad=config['targetCov']['padding']), # writes bedfile,
+        bamCoverage = os.path.join(snakedir, "scripts/shell/bamCoverage.mawk"),
+        rollingCoverage = os.path.join(snakedir, "scripts/shell/rollingCoverage.mawk"),
+        markBed = os.path.join(snakedir, "scripts/shell/markBed.mawk"),
+        q = config['targetCov']['MAPQ'],
+        minCov = config['targetCov']['minCov'],
+        window = config['targetCov']['rolling_window'],
+        # the -F 1024 flag is neccessary in order to remove duplicate reads
+        drop_dups = " -F 1024" if config['targetCov']['remove_dups'] else ""
+    conda:
+        f"../{config['envs']}/align-env.yml"
+    threads:
+        config['targetCov']['threads']
+    shell:
+        "samtools view{params.drop_dups} -q {params.q} {input.bam} | "
+        "{params.bamCoverage} | {params.rollingCoverage} {params.window} > {output.vafs}"
+
+
+
+    # # the 1 at the end is the option for the filterbed tool to output exonic coords
+    # cov_cmd += f"{s('filterBed.mawk')} {config['bedfile']} {chrom} 1"

@@ -14,7 +14,7 @@ include: "includes/utils.snk"
 
 # retrieve the file_df with all the file paths from the samplesheet
 sample_df, short_df, mut_df = get_files(config['inputdirs'], config['samples']['samplesheet'])
-chrom_list = get_chrom_list(config)
+chrom_list = [f"chr{c+1}" for c in range(22)] + ['chrX', 'chrY'] 
 
 # ############## INCLUDES ################################################
 include: "includes/fastq.snk"
@@ -23,6 +23,7 @@ include: "includes/processBAM.snk"
 include: "includes/dedup.snk"
 include: "includes/umi_filter.snk"
 include: "includes/VAF.snk"
+include: "includes/coverage.snk"
 
 # specified wildcards have to match the regex
 wildcard_constraints:
@@ -40,6 +41,7 @@ rule all:
     input:
         "QC/fastQC.html",
         expand("vaf/{sample}.csv", sample=sample_df.index),
+        expand("cov/{sample}.csv", sample=sample_df.index),
         expand("IGVnav/{sample}.txt", sample=sample_df.index),
         "results.txt"
 

@@ -1,192 +1,34 @@
-from subprocess import Popen, PIPE, DEVNULL
-from io import StringIO
-import pandas as pd
 import os
+from datetime import datetime as dt
 
 
 ansii_colors = {
-          'magenta': '[1;35;2m',
-          'green': '[1;9;2m',
-          'red': '[1;31;1m',
-          'cyan': '[1;36;1m',
-          'gray': '[1;30;1m',
-          'black': '[0m'
-          }
+    'magenta': '[1;35;2m',
+    'green': '[1;9;2m',
+    'red': '[1;31;1m',
+    'cyan': '[1;36;1m',
+    'gray': '[1;30;1m',
+    'black': '[0m'
+}
 
 colors = {
-        'process': ansii_colors['green'],
-        'time': ansii_colors['magenta'],
-        'normal': ansii_colors['gray'],
-        'warning': ansii_colors['red'],
-        'success': ansii_colors['cyan']
-        }
+    'process': ansii_colors['green'],
+    'time': ansii_colors['magenta'],
+    'normal': ansii_colors['gray'],
+    'warning': ansii_colors['red'],
+    'success': ansii_colors['cyan']
+}
 
 
-def show_output(text, color='normal', multi=False, time=False):
+def show_output(text, color='normal', multi=False, time=True, **kwargs):
     '''
     get colored output to the terminal
     '''
     time = f"\033{colors['time']}{dt.now().strftime('%H:%M:%S')}\033[0m : " if time else ''
     proc = f"\033{colors['process']}Process {os.getpid()}\033[0m : " if multi else ''
     text = f"\033{colors[color]}{text}\033[0m"
-    print(time + proc + text)
+    print(time + proc + text, **kwargs)
 
-
-def show_command(command, config, multi=True):
-    '''
-    prints the command line if debugging is active
-    '''
-
-    if config['debug_mode']:
-        proc = f"\033[92mProcess {os.getpid()}\033[0m : " if multi else ""
-        if len(command) > 1:
-            command = f"\033[1m$ {' '.join(command)}\033[0m"
-
-        print(proc + command)
-    return
-
-
-def get_chrom_list(config):
-    '''
-    returns a list of all valid chromosomes determined by build version
-    '''
-
-    def get_chrom(c, use_chr=True):
-        if c > 21:
-            if c == 22:
-                chrom = "X"
-            if c == 23:
-                chrom = "Y"
-        else:
-            chrom = c + 1
-        return f"chr{chrom}" if use_chr else str(chrom)
-
-    # switch for use of "chr"-prefix
-    is_hg38 = (config['ref']['build'] == 'hg38')
-
-    chrom_list = [get_chrom(chrom, is_hg38) for chrom in range(23)]  ### for including Y use 24!!!
-    return chrom_list
-
-
-def validate(file, message):
-    '''
-    file existence checks
-    '''
-    if not os.path.exists(file):
-        sys.stderr.write(f"{message}: {file}")
-        sys.exit(1)
-    else:
-        return file
-
-
-def sort_chr(chrom):
-    '''
-    sorts all types of chrom lists
-    '''
-
-    chrom = chrom.replace('Chr', '').replace('chr', '')
-    assigner = {'X': 50, 'Y': 60, 'M': 70, '*': 80}
-    try:
-        chrom = int(chrom)
-    except ValueError:
-        if chrom in ['X', 'Y', 'M', '*']:
-            chrom = assigner[chrom]
-        else:
-            chrom = 100
-    return chrom
-
-
-def bam2chr_list(bam_file):
-    '''
-    creates a list of chromosome names for the input bam
-    '''
-
-    # set the minimum size of included bam-files to 100
-    BAM_MIN = 100
-    bam_stats_cmd = ['samtools', 'idxstats', bam_file]
-    bam_stats = Popen(bam_stats_cmd, stdout=PIPE, stderr=DEVNULL)
-    bam_stats_string = StringIO(bam_stats.communicate()[0].decode('utf-8'))
-    stats_df = pd.read_csv(bam_stats_string, sep='\t', header=None)
-    # set the minimum size of included bam-files to 100
-    non_empty = stats_df[stats_df[2] > BAM_MIN]
-    return list(non_empty[0].T)
-
-
-def pon2chr_list(pon_list):
-    '''
-    generate a chromosome list from all the bams in the pon_list
-    '''
-
-    pon_df = pd.read_csv(pon_list)
-    chr_set = set()
-    pon_df.iloc[0].apply(lambda bam_file: chr_set.update(bam2chr_list(bam_file)))
-    return list(chr_set)
-
-
-def bed2chr_list(bed_file):
-    '''
-    generates a chromosome list from a bed file
-    '''
-
-    bed_df = pd.read_csv(bed_file, sep='\t', dtype={0: str}, header=None, skiprows=10)
-    # return the list of unique values from the first row (Chr row)
-    return bed_df.iloc[:, 0].unique()
-
-
-# ############ FILTER_BAM UTILS ########################################################
-def reduce_regions(df, padding):
-    '''
-    takes a mutation list and returns a region list using padding
-    overlapping regions are reduced to one using the gap strategy
-    '''
-
-    df = df.sort_values('Start')
-    df['Start'] = df['Start'] - padding
-    df['End'] = df['End'] + padding
-    # find the break points
-    # if Start is greater than previous End (using shift), this is a gap --> df['gap'] = 1
-    df['gap'] = df['Start'].gt(df['End'].shift()).astype('int')
-    # id different reads according to gap
-    # cumulative sum does not increase at df['gap'] == 0 and so these consecutive stretches are grouped together
-    df['gap'] = df['gap'].cumsum()
-    # groupby the coverage break group and condense individual coverage islands
-    # agg has to contain the neccessary shared columns TransLength because it is needed for coverage computation
-    df = df.groupby('gap').agg({'Chr': 'first', 'Start': 'min', 'End': 'max'})
-    return df.reset_index('gap').drop(columns='gap')
-
-
-def get_region_bed(mut_df, padding, output):
-    # get the bedfile with padded and collapsed regions
-    bed_df = reduce_regions(mut_df.sort_values(
-        ['Chr', 'Start']).iloc[:, :5], padding)
-
-    # write bed_df to file
-    bed_df.to_csv(output, index=False, sep='\t', header=False)
-    return output
-
-
-def get_mut_bed(_, input, output):
-    '''
-    serves as a params function creating and returning the bed file for the samtools view
-    '''
-
-    folder = os.path.dirname(output[0])
-
-    if not os.path.exists(folder):
-        print(f"Creating folder {folder}")
-        os.makedirs(folder)
-
-    conf = config['filter_bam']
-    padding = conf['padding']
-    mut_df = pd.read_csv(input.filter_file, sep='\t')
-    # empty file
-    ext = os.path.splitext(output[0])[1]
-    output_file = output[0].replace(ext, ".bed")
-    if not len(mut_df.index):
-        mut_df.to_csv(output_file, index=False, sep='\t', header=False)
-        return output_file
-    bed_file = mut2bed(mut_df, padding, output_file)
-    return bed_file
 
 
 def sort_df(df, cols={'Chr': True, 'Start': True}):
@@ -198,3 +40,95 @@ def sort_df(df, cols={'Chr': True, 'Start': True}):
 
     df['Chr'] = pd.Categorical(df['Chr'], chrom_list)
     return df.sort_values(list(cols.keys()), ascending=list(cols.values()))
+
+def reduce_regions(bed_df, padding):
+    '''
+    takes a mutation list and returns a region list using padding
+    overlapping regions are reduced to one using the gap strategy
+    '''
+    
+    dfs = []
+    for chrom in bed_df['Chr'].unique():
+        df = bed_df.query('Chr == @chrom')
+        df = df.sort_values('Start')
+        # add the padding
+        df['Start'] = df['Start'] - padding
+        df['End'] = df['End'] + padding
+        # find the break points
+        # if Start is greater than previous End (using shift), this is a gap --> df['gap'] = 1
+        df['gap'] = df['Start'].gt(df['End'].shift()).astype('int')
+        # id different reads according to gap
+        # cumulative sum does not increase at df['gap'] == 0 and so these consecutive stretches are grouped together
+        df['gap'] = df['gap'].cumsum()
+        # groupby the coverage break group and condense individual coverage islands
+        # agg has to contain the neccessary shared columns TransLength because it is needed for coverage computation
+        df = df.groupby('gap').agg({'Chr': 'first', 'Start': 'min', 'End': 'max'})
+        dfs.append(df.reset_index('gap').drop(columns='gap'))
+    bed_df = sort_df(pd.concat(dfs))
+    return bed_df
+    
+
+def mut2bed(df, padding=0, zero_based=True):
+    '''
+    takes a mutation df
+    if Ref/Alt columns are there, adjust Start and End accordingly:
+    if regions are given, collapse overlapping regions
+    return sorted df
+    '''
+    
+    if 'Ref' in df.columns and 'Alt' in df.columns:
+        # adjust the coords
+        df['Start'] = df['Start'] - (df['Alt'] == "-")
+        df['End'] = df['Start'] + df['Ref'].str.len() - 1
+    
+    # add End column if not given
+    if not 'End' in df.columns:
+        df.loc[:, 'End'] = df['Start']
+    # get the bedfile with padded and collapsed regions
+    
+    bed_df = reduce_regions(df, padding)
+    # perform the bed shift for 0-based
+    bed_df.loc[:, 'Start'] = bed_df['Start'] - zero_based
+    return bed_df
+
+
+def get_coverage_bedfile(mut_df, folder='', pad=10):
+    '''
+    get_bedfile maker: partial function usable as callback in params
+    '''
+
+    def get_bedfile(sample):
+        '''
+        selects the sample from mut_df
+        extracts InsertRange into Start, End and returns a collapsed bed-file
+        '''
+        
+        df = mut_df.query('sample == @sample').loc[:, 'Chr':]
+        df[['Start', 'End']] = df['InsertRange'].str.extract(r"chr[0-9XY]+:([0-9]+)-([0-9]+)")
+        for col in ['Start', 'End']:
+            df.loc[:, col] = df[col].astype(int)
+        df = df[['Chr', 'Start', 'End']]
+        bed_df = mut2bed(df, padding=pad)
+        bed_file = os.path.join(folder, f"{sample}.cov.bed")
+        bed_df.to_csv(bed_file, sep='\t', index=False, header=None)
+        return bed_file
+    return get_bedfile
+
+
+def get_snp_bedfile(mut_df, folder=''):
+    '''
+    get_bedfile maker: partial function usable as callback in params
+    '''
+
+    def get_bedfile(sample):
+        '''
+        selects the sample from mut_df and returns a bed-file for samtools
+        '''
+        
+        df = mut_df.query('sample == @sample').loc[:, 'Chr':]
+        df = df[['Chr', 'Start', 'End']]
+        bed_df = mut2bed(df, padding=0)
+        bed_file = os.path.join(folder, f"{sample}.snp.bed")
+        bed_df.to_csv(bed_file, sep='\t', index=False, header=None)
+        return bed_file
+    return get_bedfile
