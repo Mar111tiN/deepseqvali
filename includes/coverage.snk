@@ -3,7 +3,7 @@ rule targetCov:
         bam = "recalib/{sample}.bam",
         bai = "recalib/{sample}.bai"
     output:
-        vafs = "cov/{sample}.csv"
+        cov = "cov/{sample}.cov"
     params: 
         bed_file = get_coverage_bedfile(folder='bed', mut_df=mut_df, pad=config['targetCov']['padding']), # writes bedfile,
         bamCoverage = os.path.join(snakedir, "scripts/shell/bamCoverage.mawk"),
@@ -20,4 +20,14 @@ rule targetCov:
         config['targetCov']['threads']
     shell:
         "samtools view{params.drop_dups} -q {params.q} {input.bam} | "
-        "{params.bamCoverage} | {params.rollingCoverage} {params.window} | {params.markBed} {params.bed_file} > {output.vafs}"
+        "{params.bamCoverage} | {params.rollingCoverage} {params.window} | {params.markBed} {params.bed_file} > {output.cov}"
+
+rule offTarget:
+    input: 
+        cov = "cov/{sample}.cov"
+    output:
+        off = "cov/{sample}.offTarget.cov",
+        IGVnav = "IGVnav/{sample}.offTarget.txt"
+    threads: 1
+    script:
+        "../scripts/off_target.py"

@@ -41,8 +41,8 @@ rule all:
     input:
         "QC/fastQC.html",
         expand("vaf/{sample}.csv", sample=sample_df.index),
-        expand("cov/{sample}.csv", sample=sample_df.index),
         expand("IGVnav/{sample}.txt", sample=sample_df.index),
+        expand("IGVnav/{sample}.offTarget.txt", sample=sample_df.index),
         "results.txt"
 
 ###########################################################################

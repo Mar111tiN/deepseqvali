@@ -110,3 +110,6 @@ targetCov:
     threads: 5
     minCov: 10  # minimum coverage for output
     remove_dups: false
+offTarget:
+    maxDist: 37 # find the gaps where adjacent distance is greater maxDist
+    minCov: 100 # find regions offTarget with coverage > minCov
