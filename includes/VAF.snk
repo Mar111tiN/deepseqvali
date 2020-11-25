@@ -8,17 +8,16 @@ rule detect_VAFs:
         bed_file = get_snp_bedfile(folder='bed', mut_df=mut_df), # writes bedfile,
         cleanSNP = os.path.join(snakedir, "scripts/shell/cleanSNP.mawk"),
         snpVAF = os.path.join(snakedir, "scripts/shell/snpVAF.mawk"),
-        ref = full_path('genome'),
-        q = config['VAFdetect']['MAPQ'],
-        Q = config['VAFdetect']['Q'],
         minVAF = config['VAFdetect']['minVAF'],
-        ff = "UNMAP,SECONDARY,QCFAIL" + config['VAFdetect']['remove_dups'] * 'DUP'
+        ref = full_path('genome'),
+        qual = f"-q {config['VAFdetect']['MAPQ']} -Q {config['VAFdetect']['Q']}",
+        ff = f"--ff UNMAP,SECONDARY,QCFAIL{config['VAFdetect']['remove_dups'] * ',DUP'}{' -x' if config['VAFdetect']['include_overlaps'] else ''}"
     conda:
         f"../{config['envs']}/align-env.yml"
     threads:
         config['VAFdetect']['threads']
     shell:
-        "samtools mpileup --ff {params.ff} -q {params.q} -Q {params.Q} -f {params.ref} -l {params.bed_file} {input.bam} | "
+        "samtools mpileup {params.ff} {params.qual} -f {params.ref} -l {params.bed_file} {input.bam} | "
         "{params.cleanSNP} | {params.snpVAF} {params.minVAF} > {output.vafs}"
 
 

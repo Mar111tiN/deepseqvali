@@ -98,11 +98,13 @@ UMI_filter:
         max_no_call: 0.1 # fraction of reads filtered per M/e
 VAFdetect:
     remove_dups: false
+    include_overlaps: true
     Q: 25   # base quality
     MAPQ: 20 # -q in pileup
     threads: 6
     minVAF: 0 # minimum VAF for VAF output
     minDepth: 5
+    
 targetCov:
     padding: 25 # how many bases around InsertRange is considered target
     MAPQ: 20 # -q in pileup

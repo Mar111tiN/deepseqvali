@@ -42,7 +42,7 @@ def make_IGV_nav(df):
     """
 
     # create the columns
-    df = df.copy()
+    df = df.copy().loc[:, ["Chr", "Start", "End"]]
     for col in ["Call", "Tags", "Notes"]:
         df[col] = ""
     # remove the "chr"
@@ -64,7 +64,7 @@ def main(s):
 
     show_output(f"Reading coverage data for {w.sample} from {i.cov}", end="")
     off_target_df = pd.read_csv(i.cov, sep="\t")
-    show_output(f". Done.")
+    show_output(". Done.")
 
     # converting to block df
     block_df = get_off_coverage(
