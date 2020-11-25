@@ -42,7 +42,7 @@ def make_IGV_nav(df):
     """
 
     # create the columns
-    df = df.copy().loc[:, ["Chr", "Start", "End"]]
+    df = df.copy().loc[:, ["Chr", "Start", "End", "Ref", "Alt"]]
     for col in ["Call", "Tags", "Notes"]:
         df[col] = ""
     # remove the "chr"

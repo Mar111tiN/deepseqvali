@@ -61,7 +61,7 @@ rule IGV_nav:
     threads: 1
     run:
         sample = wildcards.sample
-        df = mut_df.query('sample == @sample').loc[:, ['Chr', 'Start', 'End']]
+        df = mut_df.query('sample == @sample').loc[:, ['Chr', 'Start', 'End', 'Ref', 'Alt']]
         for col in ['Call', 'Tags', 'Notes']:
             df[col] = ''
         df.loc[:, 'Chr'] = df['Chr'].str.replace('chr', '')
