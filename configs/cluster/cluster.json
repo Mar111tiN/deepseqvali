@@ -62,9 +62,10 @@
     "mem": 100,
     "name": "{rule}:{wildcards.sample}_{wildcards.tumor}-{wildcards.normal}"
   },
-  "detect_VAF": {
+  "detect_VAFs": {
     "t": "00:20",
-    "mem": 200
+    "mem": 200,
+    "name": "{rule}:{wildcards.sample}.{wildcards.folder}"
   },
   "targetCov": {
     "t": "00:20",
@@ -73,5 +74,10 @@
   "offTarget": {
     "t": "00:02",
     "mem": 200
+  },
+  "combine": {
+    "t": "00:02",
+    "mem": 200,
+    "name": "{rule}"
   }
 }

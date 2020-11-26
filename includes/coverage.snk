@@ -15,7 +15,7 @@ rule targetCov:
         # the -F 1024 flag is neccessary in order to remove duplicate reads
         drop_dups = " -F 1024" if config['targetCov']['remove_dups'] else ""
     conda:
-        f"../{config['envs']}/align-env.yml"
+        "../env/samtools-env.yml"
     threads:
         config['targetCov']['threads']
     shell:

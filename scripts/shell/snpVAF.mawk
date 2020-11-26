@@ -17,10 +17,16 @@ NR == 1 {
     for (l=0;l++<len;) {
         LETPAT[l] = "[" Letters[l] "]"
     }
-    printf("%s\t%s\t%s\t%s\t%s\t%s\n", "Chr","Start","Ref", "Depth", "Alt", "VAF");
+    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "Chr","Start","Ref", "Alt", "Depth", "TR2", "VAF");
     ####### HAVE TO ADJUST ###########
     # loop through the letters
 }
+# special case: no coverage
+$4 == 0 {
+    printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $5, $4,$4, -1);
+    next;
+}
+
 {   ######### LINES #############
     # loop through the letters
     for (l = 0;l++< len;) {
@@ -44,7 +50,6 @@ NR == 1 {
         if ($1 !~ "chr") {
             $1 = "chr" $1;
         }
-        printf("%s\t%s\t%s\t%s\t",$1,$2,$3,$4);
-        printf("%s%s\t%s\n", base,maxcount,vaf);
+        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, base,$4, maxcount, vaf);
     }
 }'

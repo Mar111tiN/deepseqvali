@@ -1,54 +1,107 @@
+def get_mpileup_params(c):
+    '''
+    creates callback for samtools pileup params taken from the config
+    gets config argument as c
+    '''
+
+    ###### extra options 
+    # add -a (include output for no coverage) 
+    extras = "-a"
+    extras += "x" if c['include_overlaps'] else ''
+    extras += "A" if c['include_orphans'] else ''
+    extras += "B" if not c['recompute_BAQ'] else ''
+    # add -d 0 (no depth limit per sample)
+    # add B (do not recompute base qualities)
+    extras += "d 0"
+
+    # qualities
+    qual = f"-q {c['MAPQ']} -Q {c['Q']}"
+
+    # reference genome
+    ref = f"-f {full_path('genome')}"
+    ff = f"--ff UNMAP,SECONDARY,QCFAIL{c['remove_dups'] * ',DUP'}"
+
+    def params(_):
+        return f"{extras} {ff} {qual} {ref}"
+    
+    # return the callback
+    return params
+
+
 rule detect_VAFs:
     input: 
-        bam = "recalib/{sample}.bam",
-        bai = "recalib/{sample}.bai"
+        bam = "{folder}/{sample}.bam",
+        bai = "{folder}/{sample}.bai"
     output:
-        vafs = "vaf/{sample}.csv"
+        vafs = "vaf/{sample}.{folder}.csv"
     params: 
         bed_file = get_snp_bedfile(folder='bed', mut_df=mut_df), # writes bedfile,
         cleanSNP = os.path.join(snakedir, "scripts/shell/cleanSNP.mawk"),
         snpVAF = os.path.join(snakedir, "scripts/shell/snpVAF.mawk"),
         minVAF = config['VAFdetect']['minVAF'],
-        ref = full_path('genome'),
-        qual = f"-q {config['VAFdetect']['MAPQ']} -Q {config['VAFdetect']['Q']}",
-        ff = f"--ff UNMAP,SECONDARY,QCFAIL{config['VAFdetect']['remove_dups'] * ',DUP'}{' -x' if config['VAFdetect']['include_overlaps'] else ''}"
+        pileup = get_mpileup_params(config['VAFdetect'])
     conda:
-        f"../{config['envs']}/align-env.yml"
+        "../env/samtools-env.yml"
     threads:
         config['VAFdetect']['threads']
     shell:
-        "samtools mpileup {params.ff} {params.qual} -f {params.ref} -l {params.bed_file} {input.bam} | "
+        "samtools mpileup {params.pileup} -l {params.bed_file} {input.bam} | "
         "{params.cleanSNP} | {params.snpVAF} {params.minVAF} > {output.vafs}"
 
 
 rule combine:
     input:
-        vafs = expand("vaf/{sample}.csv", sample=sample_df.index)
+        vafs = expand("vaf/{sample}.realigned.csv", sample=sample_df.index),
+        recal_vafs = expand("vaf/{sample}.recalib.csv", sample=sample_df.index)
     output: "results.txt"
     threads: 1
     run:
-        dfs = []
-
+        
+        mut_cols = ['sample', 'MutID', 'Chr', 'Start', 'End', 'Ref', 'Alt']
         base_cols = ['sample', 'Chr', 'Start']
-        out_cols = ['sample', 'MutID', 'Chr', 'Start', 'End', 'Ref', 'Alt', 'calledAlt', 'VAF', 'Depth']
+        vaf_cols = ['calledAlt', 'TR2', 'VAF', 'Depth']
+        # make a dict comprehension to rename recal columns
+        recal_col_dict = { col: "recal" + col for col in vaf_cols}
+        recal_cols = list(recal_col_dict.values())
 
+        out_cols = mut_cols + vaf_cols + recal_cols
+        # get the vafs and the recal vafs
+        dfs = []
         for vaf_file in input.vafs:
             # extract the sample name from vaf file
-            sample = vaf_file.split('/')[1].replace('.csv', '')
+            sample = vaf_file.split('/')[1].split(".")[0]
             # load the file and rename Alt
             df = pd.read_csv(vaf_file, sep='\t').rename(dict(Alt='calledAlt'), axis=1)
             df.loc[:, 'sample'] = sample
             dfs.append(df)
         vaf_df = pd.concat(dfs)
+        dfs = []
+        for vaf_file in input.recal_vafs:
+            # extract the sample name from vaf file
+            sample = vaf_file.split('/')[1].split(".")[0]
+            # load the file and rename Alt
+            df = pd.read_csv(vaf_file, sep='\t').rename(dict(Alt='calledAlt'), axis=1)
+            df.loc[:, 'sample'] = sample
+            dfs.append(df)
+        recal_df = pd.concat(dfs)
+
+        # rename the cols
+        recal_df = recal_df.rename(columns=recal_col_dict)
+        # merge the vafs with the recal vafs
+        vaf_df = vaf_df.drop('Ref', axis=1).merge(recal_df, on=base_cols, how="inner").sort_values(base_cols)
+
         # merge into mut_df and write to file
+        # drop Ref col in mut_df in case this field has just been filled at will
         result_df = mut_df.drop('Ref', axis=1).merge(vaf_df, on=base_cols, how='left')
+
         # make Chr column categorical for sorting .. and sort
         chrom_list = [f"chr{i}" for i in range(23)] + ['chrX', 'chrY']
         result_df['Chr'] = pd.Categorical(result_df['Chr'], chrom_list)
         result_df = result_df.sort_values(base_cols).loc[:, out_cols]
 
-        for col in out_cols[-3:]:
+        for col in vaf_cols:
             result_df.loc[:, col] = result_df[col].fillna(-1)
+
         show_output(f'Writing combined results to {str(output)}', color='success')
         result_df.to_csv(str(output), index=False, sep='\t')
         

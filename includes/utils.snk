@@ -123,15 +123,18 @@ def get_snp_bedfile(mut_df, folder=''):
     if not os.path.isdir(folder):
         os.makedirs(folder)
 
-    def get_bedfile(sample):
+    def get_bedfile(w):
         '''
         selects the sample from mut_df and returns a bed-file for samtools
         '''
-        
+        # print('BED', w.sample, w.folder)
+        sample = w.sample
         df = mut_df.query('sample == @sample').loc[:, 'Chr':]
         df = df[['Chr', 'Start', 'End']]
         bed_df = mut2bed(df, padding=0)
         bed_file = os.path.join(folder, f"{sample}.snp.bed")
-        bed_df.to_csv(bed_file, sep='\t', index=False, header=None)
+        # write to bed file if it is not there
+        if not os.path.isfile(bed_file):
+            bed_df.to_csv(bed_file, sep='\t', index=False, header=None)
         return bed_file
     return get_bedfile

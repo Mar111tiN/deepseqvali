@@ -1,14 +1,17 @@
 #!/bin/sh
 
-### cleans output from samtools mpileup where only Chr, Start, and the read data has been left
-# Chr   Start   
-# this can be done with pon2cols tool
-# removes from all reads the traces of base location and indel lengths
+### adjusted from mawktools to work on mpileup from one file and to ommit base qualities
+### usage: samtools mpileup | cleanpileup
+# removes from all reads the traces of base location and indel lengths (keeps IiDd as indel marker)
 
 
 mawk '
 {
-    read = $0;
+    # print first 4 columns
+    for (i=1;i++<4;) {
+        printf("%s\t", $i);
+    }
+    read = $5;
     
     # remove position traces from all read fields
     gsub(/\^[^\t]|\$/,"",read);
@@ -36,5 +39,5 @@ mawk '
         read = pre base post;
     }     
 # print all fields
-    print read;
+    printf("%s\n",read);
 }'
