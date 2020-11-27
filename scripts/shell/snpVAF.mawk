@@ -47,13 +47,15 @@ $4 == 0 {
             maxcount = COUNT[l];
             base = substr(Letters[l],1,1);
             vaf =maxcount/$4;
-            # for deletions readjust the start coords
-            start++;
         } 
     }
     if (match(base, "D")) {
+        # for deletions readjust the base to "-"
+        # readjust the ref to "?" because here base is the one preceeding the deletion
+        # reup the start coords that had been decremented for bed coords
         base = "-";
         ref = "?";
+        start++;
     } 
 
     if (vaf== 0) {
@@ -64,6 +66,6 @@ $4 == 0 {
         if ($1 !~ "chr") {
             $1 = "chr" $1;
         }
-        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, ref, base,$4, maxcount, vaf);
+        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, start, ref, base,$4, maxcount, vaf);
     }
 }'

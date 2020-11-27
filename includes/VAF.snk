@@ -88,7 +88,7 @@ rule combine:
         recal_df = recal_df.rename(columns=recal_col_dict)
         # merge the vafs with the recal vafs
         vaf_df = vaf_df.drop('Ref', axis=1).merge(recal_df.drop('Ref', axis=1), on=base_cols, how="inner").sort_values(base_cols)
-        
+        print(vaf_df.query('sample == "NHL1-WGA5"'))
         # merge into mut_df and write to file
         # drop Ref col in mut_df in case this field has just been filled at will
         result_df = mut_df.merge(vaf_df, on=base_cols, how='left')
