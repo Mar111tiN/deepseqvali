@@ -37,19 +37,29 @@ $4 == 0 {
     maxcount = 0;
     base = "";
     vaf = 0;
+    ref = $3;
     # first line extra for pretty
     for (l=0;l++<len;) {
         if (COUNT[l] > maxcount) {
             maxcount = COUNT[l];
             base = substr(Letters[l],1,1);
             vaf =maxcount/$4;
+
         } 
+    }
+    if (match(base, "D")) {
+        base = "-";
+        ref = "?";
+    } 
+
+    if (vaf== 0) {
+        base = ref;
     }
     if (vaf >= minVAF) {
         # I want chr in chromosomes
         if ($1 !~ "chr") {
             $1 = "chr" $1;
         }
-        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, base,$4, maxcount, vaf);
+        printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, ref, base,$4, maxcount, vaf);
     }
 }'

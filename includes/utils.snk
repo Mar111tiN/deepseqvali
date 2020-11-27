@@ -71,15 +71,16 @@ def reduce_regions(bed_df, padding):
 def mut2bed(df, padding=0, zero_based=True):
     '''
     takes a mutation df
-    if Ref/Alt columns are there, adjust Start and End accordingly:
+    if Ref/Alt columns are there, adjust Start and End to one position for SNP:
     if regions are given, collapse overlapping regions
     return sorted df
     '''
-    
+
     if 'Ref' in df.columns and 'Alt' in df.columns:
         # adjust the coords
         df['Start'] = df['Start'] - (df['Alt'] == "-")
-        df['End'] = df['Start'] + df['Ref'].str.len() - 1
+        # for indels, 
+        df['End'] = df['Start']
     
     # add End column if not given
     if not 'End' in df.columns:
@@ -87,7 +88,7 @@ def mut2bed(df, padding=0, zero_based=True):
     # get the bedfile with padded and collapsed regions
     
     bed_df = reduce_regions(df, padding)
-    # perform the bed shift for 0-based
+    # perform the bed shift for 0-based output
     bed_df.loc[:, 'Start'] = bed_df['Start'] - zero_based
     return bed_df
 
@@ -130,7 +131,7 @@ def get_snp_bedfile(mut_df, folder=''):
         # print('BED', w.sample, w.folder)
         sample = w.sample
         df = mut_df.query('sample == @sample').loc[:, 'Chr':]
-        df = df[['Chr', 'Start', 'End']]
+        df = df[['Chr', 'Start', 'End', 'Ref', 'Alt']]
         bed_df = mut2bed(df, padding=0)
         bed_file = os.path.join(folder, f"{sample}.snp.bed")
         # write to bed file if it is not there

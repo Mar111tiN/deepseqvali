@@ -17,18 +17,19 @@ mawk '
         indel = substr(read,RSTART,1); # + or -
         base = substr(read,RSTART-1,1); # base before the deletion
         l = substr(read,RSTART+1,RLENGTH-1);
+        indel_bases = substr(read,RSTART+RLENGTH,l);
         post = substr(read,RSTART+RLENGTH+l);
         if (indel == "-") {
-            if (match(base,/[ACGT]/)) {
-                base = "d";
-            } else {
+            if (match(indel_bases,/[ACGT]/)) {
                 base = "D";
+            } else {
+                base = "d";
             }
         } else {
-            if (match(base,/[ACGT]/)) {
-                base = "i";
-            } else {
+            if (match(indel_bases,/[ACGT]/)) {
                 base = "I";
+            } else {
+                base = "i";
             }            
         }
 
