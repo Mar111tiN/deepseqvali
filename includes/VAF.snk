@@ -56,7 +56,6 @@ rule combine:
     output: "results.txt"
     threads: 1
     run:
-        
         mut_cols = ['sample', 'MutID', 'Chr', 'Start', 'End', 'Ref', 'Alt']
         base_cols = ['sample', 'Chr', 'Start']
         vaf_cols = ['calledAlt', 'TR2', 'VAF', 'Depth']
@@ -88,12 +87,12 @@ rule combine:
         # rename the cols
         recal_df = recal_df.rename(columns=recal_col_dict)
         # merge the vafs with the recal vafs
-        vaf_df = vaf_df.drop('Ref', axis=1).merge(recal_df, on=base_cols, how="inner").sort_values(base_cols)
-
+        vaf_df = vaf_df.drop('Ref', axis=1).merge(recal_df.drop('Ref', axis=1), on=base_cols, how="inner").sort_values(base_cols)
+        
         # merge into mut_df and write to file
         # drop Ref col in mut_df in case this field has just been filled at will
-        result_df = mut_df.drop('Ref', axis=1).merge(vaf_df, on=base_cols, how='left')
-
+        result_df = mut_df.merge(vaf_df, on=base_cols, how='left')
+        print(result_df.query('sample == "NHL1-WGA5"'))
         # make Chr column categorical for sorting .. and sort
         chrom_list = [f"chr{i}" for i in range(23)] + ['chrX', 'chrY']
         result_df['Chr'] = pd.Categorical(result_df['Chr'], chrom_list)

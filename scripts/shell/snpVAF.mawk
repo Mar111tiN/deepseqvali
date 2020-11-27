@@ -2,7 +2,9 @@
 
 # 1 CORE
 
-### cleans samtools mpileup output 
+### cleans samtools mpileup output
+# for deletions, start is raised by one while assuming that coords had been lowered in bed file to capture deletion
+
 mawk ' # cat - <(echo "STOP\n") $SNP |   ###### if the SNP markers are necessary, they have to be read in here 
 ## $5 ~ /[.,]*[ACTG]+[.,]*/ | mawk    # if you only want to output mutant positions (complete the quotes!!)
 
@@ -38,13 +40,15 @@ $4 == 0 {
     base = "";
     vaf = 0;
     ref = $3;
+    start = $2;
     # first line extra for pretty
     for (l=0;l++<len;) {
         if (COUNT[l] > maxcount) {
             maxcount = COUNT[l];
             base = substr(Letters[l],1,1);
             vaf =maxcount/$4;
-
+            # for deletions readjust the start coords
+            start++;
         } 
     }
     if (match(base, "D")) {
