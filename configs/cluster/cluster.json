@@ -14,12 +14,12 @@
   },
   "fastqc": {
     "t": "00:10",
-    "mem": 50,
+    "mem": 500,
     "name": "{rule}:{wildcards.sample}_{wildcards.read}"
   },
   "fastq_multiQC": {
     "t": "00:10",
-    "mem": 10,
+    "mem": 500,
     "name": "{rule}"
   },
   "ubamXT": {

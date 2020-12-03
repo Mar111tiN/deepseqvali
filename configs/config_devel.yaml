@@ -4,7 +4,7 @@ inputdirs:
 workdir: /fast/users/szyskam_c/scratch/develop/Vali2 # here your results are created
 envs: env # the folder of the env-files (MacOS requires different environments)
 samples: # here go all your samples
-    samplesheet: info/AMLNHL_list.xlsx # excel file containing sample name, mutation position and MutID (either abspath or relative to snakedir)
+    samplesheet: info/AMLNHL_list_Marlon.xlsx # excel file containing sample name, mutation position and MutID (either abspath or relative to snakedir)
     umi_barcode: false # suffix for the fastq containing the umi-barcode
 setup:
     library: NebNext  # have to be found at bed_files/SureSelect/<build>/SS_<library_version>_<build>_<Padded | Covered>[_nochr].bed

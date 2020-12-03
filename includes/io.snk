@@ -20,12 +20,12 @@ def get_files(folder_list, sample_sheet):
     # import the sample sheet (with file extension check)
     if os.path.splitext(sample_sheet)[1] == ".xlsx":
         show_output(
-            f"Reading excel file {sample_sheet}",
+            f"Reading excel file {sample_sheet}"
         )
         mut_df = pd.read_excel(sample_sheet)
     else:
         show_output(
-            f"Reading csv sample sheet {sample_sheet}",
+            f"Reading csv sample sheet {sample_sheet}"
         )
         mut_df = pd.read_csv(sample_sheet, sep='\t')
     samples = mut_df.groupby('sample').first().iloc[:,:1]
