@@ -167,6 +167,11 @@ def get_snp_bedfile(mut_df, folder=''):
         df = mut_df.query('sample == @sample').loc[:, 'Chr':]
         df = df[['Chr', 'Start', 'End', 'Ref', 'Alt']]
         bed_df = mut2bed(df, padding=0)
+
+        ##### DEBUG #################
+        # print("BEDDF SAMPLE", sample, "\n",bed_df)
+        ##### DEBUG #################
+        
         bed_file = os.path.join(folder, f"{sample}.snp.bed")
         # write to bed file if it is not there
         if not os.path.isfile(bed_file):

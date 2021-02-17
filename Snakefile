@@ -15,7 +15,8 @@ include: "includes/utils.snk"
 # retrieve the file_df with all the file paths from the samplesheet
 sample_df, short_df, mut_df = get_files(config['inputdirs'], config['samples']['samplesheet'])
 chrom_list = get_chrom_list(config)
-print(sample_df)
+# print(sample_df)
+# print(mut_df)
 # ############## INCLUDES ################################################
 include: "includes/fastq.snk"
 include: "includes/map.snk"

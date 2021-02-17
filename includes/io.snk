@@ -140,30 +140,6 @@ def full_path(file):
     return full_ref_path
 
 
-
-def get_bedfile_maker(folder='bed'):
-    '''
-    function factory returning get_bedfile function set to certain output path
-    '''
-    if not os.path.isdir(folder):
-        show_output(f'Creating bed_folder {folder}.')
-        os.makedirs(folder)
-    def get_bedfile(w):
-        '''
-        creates bedfile from global mut_df restricted to w.sample and returns the bed_file path
-        '''
-        
-        sample = w.sample
-        bed_df = mut_df.query('sample == @sample').loc[:, 'Chr':]
-        bed_df.loc[:, 'Start'] = bed_df['Start'] - 1 - (bed_df['Alt'] == '-').astype(int)
-        bed_df.loc[:, 'End'] = bed_df['Start'] + 1
-        bed_file = f"{folder}/{sample}.bed"
-        bed_df.iloc[:, :3].to_csv(bed_file, sep='\t', index=False, header=None)
-        return bed_file
-    return get_bedfile
-
-
-
 ################### LEGACY ######################################
 
 # def full_path(file):
