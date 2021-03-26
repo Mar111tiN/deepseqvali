@@ -3,31 +3,78 @@ import os
 import re
 
 
-def get_files(folder_list, sample_sheet):
+def get_files(config):
     '''
     retrieves the path to all the files in the sample_sheet
     if rerun == False, it looks for fastq files
     if rerun == True, it looks for bam files
+    outputs the necessary dataframes in a df dictionary for easy access
     '''
 
+    demulti=config['setup']['demulti']
+
+    # folder_list
+    folder_list = config['inputdirs']
     # check whether single folder or folder list
-    if len(folder_list[0]) == 1:
+    if (len(folder_list[0]) == 1): # that means 
         folder_list = [folder_list]
     
+
+    # get the mutation file
+    mut_sheet = config['samples']['mutation_sheet']
     # check full path or append path to scriptdir
-    if not sample_sheet.startswith('/'):
-        sample_sheet = os.path.join(snakedir, sample_sheet)
-    # import the sample sheet (with file extension check)
-    if os.path.splitext(sample_sheet)[1] == ".xlsx":
+    if not mut_sheet.startswith('/'):
+        mut_sheet = os.path.join(snakedir, mut_sheet)
+
+    # import the mutation sheet (with file extension check)
+    if os.path.splitext(mut_sheet)[1] == ".xlsx":
         show_output(
-            f"Reading excel file {sample_sheet}"
+            f"Reading excel mutation list {mut_sheet}"
         )
-        mut_df = pd.read_excel(sample_sheet)
+        mut_df = pd.read_excel(mut_sheet)
     else:
         show_output(
-            f"Reading csv sample sheet {sample_sheet}"
+            f"Reading csv mutation list {mut_sheet}"
         )
-        mut_df = pd.read_csv(sample_sheet, sep='\t')
+        mut_df = pd.read_csv(mut_sheet, sep='\t')
+
+
+    # if demulti is true, sample_df is taken from the sample_sheet and the fastq_paths are inferred from list
+    if demulti:
+        # sample_sheet
+        sample_sheet = config['samples']['sample_sheet']
+        # check full path or append path to scriptdir
+        if not sample_sheet.startswith('/'):
+            sample_sheet = os.path.join(snakedir, sample_sheet)
+        show_output(
+            f"Reading sample sheet {sample_sheet}"
+        )
+        index_df = sheet2df(sample_sheet)
+        fastq_df = index_df.copy()
+        fastq_df['R1'] = "fastq/" + fastq_df['sample'] + ".1.fastq.gz"
+        fastq_df['R2'] = "fastq/" + fastq_df['sample'] + ".2.fastq.gz"
+        # apply the fastq paths known to be in the fastq folder
+        fastq_df = fastq_df.set_index("sample").loc[:, ['R1', 'R2']]
+        df_dict = dict(
+            fastq=fastq_df,
+            short_fastq=fastq_df,   # here all fastqs are short
+            samples=index_df,
+            muts=mut_df
+        )
+
+        if config['setup']['check_all_indices']:
+            # get the permutated index files
+            index_file = config['samples']['index_file']
+            if not index_file.startswith('/'):
+                index_file = os.path.join(snakedir, index_file)
+            all_indices_df = index_permutator(index_file)
+            df_dict['index'] = all_indices_df
+        return df_dict
+
+
+    #### GO on for no demulti
+
+    # get the samples from the mutation df
     samples = mut_df.groupby('sample').first().iloc[:,:1]
     # for fastq files:
     fastq_list = []
@@ -66,15 +113,19 @@ def get_files(folder_list, sample_sheet):
             cols.append(onfig['samples']['umi_barcode'])
         return row.reindex(cols)
 
-    samples_df = samples.apply(get_fastq_paths, axis=1, fastq_list=fastq_list)
+    fastq_df = samples.apply(get_fastq_paths, axis=1, fastq_list=fastq_list)
     short_df = samples.apply(get_fastq_paths, axis=1, fastq_list=short_list)
 
     # ########## DEBUG #################
     # print(short_df)
-    # print(samples_df)
+    # print(fastq_df)
     # ##################################
-
-    return samples_df, short_df, mut_df
+    df_dict = dict(
+        fastq=fastq_df,
+        short_fastq=short_df,
+        muts=mut_df
+    )
+    return df_dict
 
 
 def get_fastq(w):
@@ -90,8 +141,12 @@ def get_fastqc_list(_):
     '''
     returns the complete list of required fastqc files depending on trim option
     '''
-    reads = ['R1', 'R2']
-    fastqc_list = [f"fastqc/{s}_{r}_fastqc.zip" for s in short_df.index for r in reads]
+    if config['setup']['demulti']:
+        reads = [".1.",".2."] if config['setup']['PE'] else [".1."]
+    else:
+        reads = ['R1', 'R2'] if config['setup']['PE'] else ['R1']
+    
+    fastqc_list = [f"fastqc/{s}_{r}_fastqc.zip" for s in global_dfs['short_fastq'].index for r in reads]
     return fastqc_list
 
 
@@ -106,7 +161,7 @@ def get_FastqToSam_input(w):
     if config['setup']['UMI']:
         reads.append('index')
 
-    return sample_df.loc[w.sample, reads]
+    return global_dfs['fastq'].loc[w.sample, reads]
 
 
 # ############## INDEL REALIGNER ######################

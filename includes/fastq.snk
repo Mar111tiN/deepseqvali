@@ -25,7 +25,7 @@ rule fastq_multiQC:
     input:
         get_fastqc_list
     output:
-        "QC/fastQC.html"
+        "QC/{samples_index}_fastQC.html"
     threads: 2
     conda:
         f"../{config['envs']}/fastQC-env.yml"

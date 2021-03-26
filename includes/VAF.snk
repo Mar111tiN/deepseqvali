@@ -35,7 +35,7 @@ rule detect_VAFs:
     output:
         vafs = "vaf/{sample}.{folder}.csv"
     params: 
-        bed_file = get_snp_bedfile(folder='bed', mut_df=mut_df), # writes bedfile,
+        bed_file = get_snp_bedfile(folder='bed', mut_df=global_dfs['muts']), # writes bedfile,
         cleanSNP = os.path.join(snakedir, "scripts/shell/cleanSNP.mawk"),
         snpVAF = os.path.join(snakedir, "scripts/shell/snpVAF.mawk"),
         minVAF = config['VAFdetect']['minVAF'],
@@ -51,8 +51,8 @@ rule detect_VAFs:
 
 rule combine:
     input:
-        vafs = expand("vaf/{sample}.mapped.csv", sample=sample_df.index),
-        recal_vafs = expand("vaf/{sample}.recalib.csv", sample=sample_df.index)
+        vafs = expand("vaf/{sample}.mapped.csv", sample=global_dfs['fastq'].index),
+        recal_vafs = expand("vaf/{sample}.recalib.csv", sample=global_dfs['fastq'].index)
     output: "results.txt"
     threads: 1
     run:
