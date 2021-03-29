@@ -69,6 +69,9 @@ def get_files(config):
         if config['setup']['PE']:
             sample_df['R2'] = FASTQFOLDER + sample_df.index + ".2.fastq.gz"
             sample_df['sR2'] = FASTQFOLDER + sample_df.index + ".2.fastq.gz"
+
+        # merge with index of sample_df
+        mut_df = mut_df.merge(sample_df.loc[:, []], left_on="sample", right_index=True)
         return mut_df, sample_df
 
 
@@ -114,19 +117,18 @@ def get_files(config):
             cols.append(onfig['samples']['umi_barcode'])
         return row.reindex(cols)
 
-    fastq_df = samples.apply(get_fastq_paths, axis=1, fastq_list=fastq_list)
+    sample_df = samples.apply(get_fastq_paths, axis=1, fastq_list=fastq_list)
 
 
     # ########## DEBUG #################
     # print(short_df)
     # print(fastq_df)
     # ##################################
-    df_dict = dict(
-        fastq=fastq_df,
-        short_fastq=short_df,
-        muts=mut_df
-    )
-    return df_dict
+
+    # reduce mut_df to samples in sample_df
+    # merge with index of sample_df
+    mut_df = mut_df.merge(sample_df.loc[:, []], left_on="sample", right_index=True)
+    return mut_df, sample_df
 
 
 def get_fastq(w):

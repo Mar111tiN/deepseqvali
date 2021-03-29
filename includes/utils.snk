@@ -166,6 +166,10 @@ def get_snp_bedfile(mut_df, folder=''):
         sample = w.sample
         df = mut_df.query('sample == @sample').loc[:, 'Chr':]
         df = df[['Chr', 'Start', 'End', 'Ref', 'Alt']]
+        ########## DEBUG ##########
+        print("FORBED:", df)
+        ###########################
+
         bed_df = mut2bed(df, padding=0)
 
         ##### DEBUG #################

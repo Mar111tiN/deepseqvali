@@ -17,7 +17,8 @@ include: "includes/demulti_utils.snk"
 mut_df, sample_df = get_files(config)
 chrom_list = get_chrom_list(config)
 
-print("sample", sample_df)
+# print("sample", sample_df)
+# print("mutations", mut_df)
 
 reads=["R1", "R2"] if config['setup']['PE'] else ["R1"]
 picard_reads = [1, 2] if config['setup']['PE'] else [1]
@@ -27,7 +28,6 @@ include: "includes/fastq.snk"
 include: "includes/map.snk"
 include: "includes/processBAM.snk"
 include: "includes/dedup.snk"
-include: "includes/umi_filter.snk"
 include: "includes/VAF.snk"
 include: "includes/coverage.snk"
 
@@ -50,7 +50,7 @@ rule all:
         "QC/samples-fastQC.html",
         # expand("IGVnav/{sample}.txt", sample=sample_df.index),
         # expand("IGVnav/{sample}.offTarget.txt", sample=sample_df.index),
-        # "results.txt"
+        "results.txt"
 
 ###########################################################################
 # print out of installed tools
@@ -72,5 +72,5 @@ onsuccess:
     print("Workflow finished - everything ran smoothly")
 
     if config['setup']['cleanup']:
-        shell("rm picard/fastq/*barcode*fastq.gz")
+        shell("rm -f picard/fastq/*barcode*fastq.gz")
         shell("rm -f fastqc/*_fastqc.html fastqc/*.sub")

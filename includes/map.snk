@@ -2,17 +2,18 @@ def get_RG_info(w):
     '''
     gets the read-group information for SamToFastq from the config
     '''
-    platform = config['setup']['platform']
+    platform = config['setup']['Platform']
     library = f"{config['setup']['library']}_{config['setup']['library_version']}"
-    PU = f"{config['setup']['platform_unit']}.0"  # here should come the lane
+    PU = f"{config['setup']['Platform_unit']}.0"  # here should come the lane
     # platform_unit = asdf
     RG_info = f"--read-group-id={w.sample} --sample={w.sample} --platform-unit {PU} --platform={platform} --library={library}"
     return RG_info
 
-def get_read_structure():
+def get_read_structure(_):
     rs = "+T +T" if config['setup']['PE'] else "+T"
     if config['setup']['UMI']:
         rs += " +M" 
+    return rs
 
 
 rule ubamXT:

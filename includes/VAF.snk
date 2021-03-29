@@ -51,8 +51,8 @@ rule detect_VAFs:
 
 rule combine:
     input:
-        vafs = expand("vaf/{sample}.mapped.csv", sample=sample_df.index),
-        recal_vafs = expand("vaf/{sample}.recalib.csv", sample=sample_df.index)
+        vafs = expand("vaf/{sample}.mapped.csv", sample=sample_df.query('samples_index == "samples"').index),
+        recal_vafs = expand("vaf/{sample}.recalib.csv", sample=sample_df.query('samples_index == "samples"').index)
     output: "results.txt"
     threads: 1
     run:
