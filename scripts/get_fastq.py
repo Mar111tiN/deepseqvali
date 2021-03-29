@@ -15,7 +15,10 @@ def main(s):
     elif extension == ".gz":
         show_output(f"Creating symlink for file {input}")
         # create shortcut to fastq.gz in workdir/fastq
-        run(f"ln -s {input} {output}")
+        if snakemake.config['setup']['demulti']:
+            run(f"ln -s $(pwd)/{input} {output}")
+        else:
+            run(f"ln -s {input} {output}")
     elif extension == ".bz2":
         show_output(f"file extension {extension} --> unzipping with bzcat")
         # uncompress fastq.b2 and recompress to fastq.gz in workdir/fastq

@@ -14,20 +14,13 @@ include: "includes/demulti_utils.snk"
 
 # retrieve the file_df with all the file paths from the samplesheet
 # if demulti is true, short_df is the index_df (for picards barcodes.txt)
-global_dfs = get_files(config)
+mut_df, sample_df = get_files(config)
 chrom_list = get_chrom_list(config)
 
-print("sample", global_dfs['fastq'])
-print("short", global_dfs['short_fastq'])
+print("sample", sample_df)
 
-if config['setup']['demulti']:
-    print("sample_index", global_dfs['samples'])
-    if config['setup']['check_all_indices']:
-        print("all_indices", global_dfs['index'])
-
-# print(index_df)
-
-reads=[1,2] if config['setup']['PE'] else [1]
+reads=["R1", "R2"] if config['setup']['PE'] else ["R1"]
+picard_reads = [1, 2] if config['setup']['PE'] else [1]
 # ############## INCLUDES ################################################
 include: "includes/demulti.snk"
 include: "includes/fastq.snk"
@@ -52,9 +45,9 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand("fastq/{sample}.{read}.fastq.gz", sample=global_dfs['samples']['sample'], read=reads),
-        expand("fastq/index/{sample}.{read}.fastq.gz", sample=global_dfs['index']['sample'], read=reads)
-        # "QC/fastQC.html",
+        # expand("fastq/{sample}_{read}.fastq.gz", sample=sample_df.index, read=reads),
+        "QC/index-fastQC.html",
+        "QC/samples-fastQC.html",
         # expand("IGVnav/{sample}.txt", sample=sample_df.index),
         # expand("IGVnav/{sample}.offTarget.txt", sample=sample_df.index),
         # "results.txt"
@@ -63,8 +56,10 @@ rule all:
 # print out of installed tools
 onstart:
     print("    EXOM SEQUENCING PIPELINE STARTING.......")
-
-    print('fastq:', global_dfs['short_fastq'].loc[:, ['R1', 'R2']])
+    if config['setup']['PE']:
+        print('fastq:', sample_df.loc[:, ['sR1', 'sR2']])
+    else:
+        print('fastq:', sample_df.loc[sample_df['samples_index'] == "samples", ['sR1']])
     ##########################
     path_to_config = os.path.join(config['workdir'], "config.yaml")
     with open(path_to_config, 'w+') as stream:
@@ -75,3 +70,7 @@ onstart:
 onsuccess:
     # shell("export PATH=$ORG_PATH; unset ORG_PATH")
     print("Workflow finished - everything ran smoothly")
+
+    if config['setup']['cleanup']:
+        shell("rm picard/fastq/*barcode*fastq.gz")
+        shell("rm -f fastqc/*_fastqc.html fastqc/*.sub")

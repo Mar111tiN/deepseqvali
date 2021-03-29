@@ -25,10 +25,10 @@ rule fastq_multiQC:
     input:
         get_fastqc_list
     output:
-        "QC/{samples_index}_fastQC.html"
+        "QC/{samples_index}-fastQC.html"
     threads: 2
     conda:
         f"../{config['envs']}/fastQC-env.yml"
     shell:
-        "multiqc -f -o QC/ -n fastQC --interactive fastqc/; "  # interactive for big number of files
-        "rm -f fastqc/*_fastqc.html fastq/*.sub"  # leave the zip files for accumulated multiQC of all processed samples
+        "multiqc -f -o QC/ -n {wildcards.samples_index}-fastQC --interactive {input}; "  # interactive for big number of files
+        "rm -f fastqc/*_fastqc.html fastqc/*.sub"  # leave the zip files for accumulated multiQC of all processed samples

@@ -12,6 +12,26 @@
     "mem": 20,
     "name": "{rule}:{wildcards.sample}_{wildcards.read}"
   },
+  "picard_sample_sheets": {
+    "t": "00:02",
+    "mem": 50,
+    "name": "{rule}:{wildcards.samples_index}"
+  }, 
+  "extract_barcodes": {
+    "t": "00:15",
+    "mem": 300,
+    "name": "{rule}:{wildcards.samples_index}"
+  },
+  "basecall2fastq": {
+    "t": "00:45",
+    "mem": 500,
+    "name": "{rule}"
+  },
+  "basecall2indexfastq": {
+    "t": "00:45",
+    "mem": 500,
+    "name": "{rule}"
+  },
   "fastqc": {
     "t": "00:10",
     "mem": 500,

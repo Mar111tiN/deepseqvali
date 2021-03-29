@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 
-def index_permutator(index_file):
+def index_permutator(index_file, add_undetermined=True):
     """
     takes an index.txt file containing all possible indices for a prep type and returns all possible combinations as an index_df
     """
@@ -48,10 +48,26 @@ def index_permutator(index_file):
         index_df = index_df.loc[
             :, ["sample", "i7-Index", "i7-Seq", "i5-Index", "i5-Seq"]
         ]
+        if add_undetermined:
+            # add the Undetermined index
+            index_df = index_df.append(pd.Series({
+                "sample":"Undetermined",
+                "i7-Index": "i7N",
+                "i7-Seq": "N",
+                "i5-Index": "i5N",
+            "i5-Seq": "N"
+            }), ignore_index=True)
     else:
         index_df["sample"] = index_df["i7-Index"]
         index_df = index_df.loc[:, ["sample", "i7-Index", "i7-Seq"]]
-    return index_df
+        if add_undetermined:
+            # add the Undetermined index
+            index_df = index_df.append(pd.Series({
+                "sample":"Undetermined",
+                "i7-Index": "i7N",
+                "i7-Seq": "N",
+            }), ignore_index=True)
+    return index_df.set_index('sample')
 
 
 def sheet2df(sample_sheet):
@@ -78,15 +94,15 @@ def sheet2df(sample_sheet):
     )
     return index_df.loc[
         :, ["sample", "i7-Index", "i7-Seq", "i5-Index", "i5-Seq", "Library"]
-    ]
+    ].set_index('sample')
 
 
 def make_picard_sheets(
     index_df,
     library_name="NEBnext_IlluminaPrep",
+    samples_index="samples",
     fastq_folder=".",
-    output_file="",
-    append_undetermined=True,
+    output_file=""
 ):
     """
     converts index_df into txt files for picard ExtractIlluminaBarcodes and IlluminaBarcodesToSam/Fastq
@@ -94,112 +110,13 @@ def make_picard_sheets(
     <prefix>_multiplex.txt is for IlluminaBarcodesToSam/Fastq
     """
 
-    # check if i5-columns are filled out
-    hasI5 = "i5-Seq" in index_df.columns
-    if hasI5:
-        hasI5 = np.any((index_df["i5-Seq"] != "") & (~index_df["i5-Seq"].isna()))
 
-    if hasI5:
-        barcode_df = index_df.rename(
-            {
-                "i7-Seq": "barcode_sequence_1",
-                "i5-Seq": "barcode_sequence_2",
-                "sample": "barcode_name",
-                "Library": "library_name",
-            },
-            axis=1,
-        )
+    # select the subset of index_df based on samples_index
+    index_df = index_df.query("samples_index == @samples_index")
 
-        # apply library name if not in list
-        if not "library_name" in barcode_df.columns:
-            barcode_df["library_name"] = library_name
-
-        barcode_df = barcode_df.loc[
-            :,
-            [
-                "barcode_sequence_1",
-                "barcode_sequence_2",
-                "barcode_name",
-                "library_name",
-            ],
-        ]
-
-        multiplex_df = barcode_df.rename(
-            dict(
-                barcode_name="OUTPUT_PREFIX",
-                barcode_sequence_1="BARCODE_1",
-                barcode_sequence_2="BARCODE_2",
-            ),
-            axis=1,
-        ).loc[:, ["OUTPUT_PREFIX", "BARCODE_1", "BARCODE_2"]]
-
-        # add the unplaces bam
-        if append_undetermined:
-            multiplex_df = multiplex_df.append(
-                pd.Series(
-                    {
-                        "OUTPUT_PREFIX": "Undetermined",
-                        "BARCODE_1": "N",
-                        "BARCODE_2": "N",
-                    }
-                ),
-                ignore_index=True,
-            )
-
-    else:  # no i5
-        barcode_df = index_df.rename(
-            {
-                "i7-Seq": "barcode_sequence",
-                "sample": "barcode_name",
-                "Library": "library_name",
-            },
-            axis=1,
-        )
-
-        # apply library name if not in list
-        if not "library_name" in barcode_df.columns:
-            barcode_df["library_name"] = library_name
-
-        barcode_df = barcode_df.loc[
-            :, ["barcode_sequence", "barcode_name", "library_name"]
-        ]
-
-        multiplex_df = barcode_df.rename(
-            dict(
-                barcode_name="OUTPUT_PREFIX",
-                barcode_sequence="BARCODE_1",
-            ),
-            axis=1,
-        ).loc[:, ["OUTPUT_PREFIX", "BARCODE_1"]]
-        # add the unplaced fastq
-        if append_undetermined:
-            multiplex_df = multiplex_df.append(
-                pd.Series({"OUTPUT_PREFIX": "Undetermined", "BARCODE_1": "N"}),
-                ignore_index=True,
-            )
-
-    multiplex_df["OUTPUT_PREFIX"] = (
-        fastq_folder.rstrip("/") + "/" + multiplex_df["OUTPUT_PREFIX"]
-    )
-    # add the N column
-
-    barcode_df.to_csv(f"{output_file}_barcode.txt", sep="\t", index=False)
-    multiplex_df.to_csv(f"{output_file}_multiplex.txt", sep="\t", index=False)
-    return barcode_df, multiplex_df
-
-
-def make_picard_sheets(
-    index_df,
-    library_name="NEBnext_IlluminaPrep",
-    fastq_folder=".",
-    output_file="",
-    append_undetermined=True,
-):
-    """
-    converts index_df into txt files for picard ExtractIlluminaBarcodes and IlluminaBarcodesToSam/Fastq
-    <prefix>_barcodes.txt is for ExtractIlluminaBarcodes
-    <prefix>_multiplex.txt is for IlluminaBarcodesToSam/Fastq
-    """
+    # check if sample is index or column
+    if not "sample" in index_df.columns:
+        index_df = index_df.reset_index()
 
     # check if i5-columns are filled out
     hasI5 = "i5-Seq" in index_df.columns
@@ -240,18 +157,6 @@ def make_picard_sheets(
             axis=1,
         ).loc[:, ["OUTPUT_PREFIX", "BARCODE_1", "BARCODE_2"]]
 
-        # add the unplaces bam
-        if append_undetermined:
-            multiplex_df = multiplex_df.append(
-                pd.Series(
-                    {
-                        "OUTPUT_PREFIX": "Undetermined",
-                        "BARCODE_1": "N",
-                        "BARCODE_2": "N",
-                    }
-                ),
-                ignore_index=True,
-            )
 
     else:  # no i5
         barcode_df = index_df.rename(
@@ -278,12 +183,6 @@ def make_picard_sheets(
             ),
             axis=1,
         ).loc[:, ["OUTPUT_PREFIX", "BARCODE_1"]]
-        # add the unplaced fastq
-        if append_undetermined:
-            multiplex_df = multiplex_df.append(
-                pd.Series({"OUTPUT_PREFIX": "Undetermined", "BARCODE_1": "N"}),
-                ignore_index=True,
-            )
 
     multiplex_df["OUTPUT_PREFIX"] = (
         fastq_folder.rstrip("/") + "/" + multiplex_df["OUTPUT_PREFIX"]

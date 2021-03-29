@@ -9,6 +9,11 @@ def get_RG_info(w):
     RG_info = f"--read-group-id={w.sample} --sample={w.sample} --platform-unit {PU} --platform={platform} --library={library}"
     return RG_info
 
+def get_read_structure():
+    rs = "+T +T" if config['setup']['PE'] else "+T"
+    if config['setup']['UMI']:
+        rs += " +M" 
+
 
 rule ubamXT:
     input:
@@ -22,7 +27,7 @@ rule ubamXT:
         f"../{config['envs']}/ubam-env.yml"
     params:
         read_group_info = get_RG_info,
-        read_structure = "+T +T +M" if config['setup']['UMI'] else "+T +T",
+        read_structure = get_read_structure,
         deflater = "use_jdk_deflater=true use_jdk_inflater=true" if config['ubamXT']['use_jdk'] else ""
     shell:
         "fgbio FastqToBam -i {input} {params.read_group_info} -s --read-structure {params.read_structure} -o /dev/stdout | "

@@ -5,7 +5,7 @@ rule targetCov:
     output:
         cov = "cov/{sample}.cov"
     params: 
-        bed_file = get_coverage_bedfile(folder='bed', mut_df=global_dfs['muts'], pad=config['targetCov']['padding']), # writes bedfile,
+        bed_file = get_coverage_bedfile(folder='bed', mut_df=mut_df, pad=config['targetCov']['padding']), # writes bedfile,
         bamCoverage = os.path.join(snakedir, "scripts/shell/bamCoverage.mawk"),
         rollingCoverage = os.path.join(snakedir, "scripts/shell/rollingCoverage.mawk"),
         markBed = os.path.join(snakedir, "scripts/shell/markBed.mawk"),

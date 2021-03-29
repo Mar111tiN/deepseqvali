@@ -4,48 +4,23 @@ rule picard_sample_sheets:
         multiplex = "picard/{samples_index}_multiplex.txt"
     params:
         file_base = lambda _, output: output.barcodes.split("_")[0]
+    threads: 1
     run:
         barcodes_df, multiplex_df = make_picard_sheets(
-            global_dfs[wildcards.samples_index], 
-            fastq_folder="fastq",
-            output_file=params.file_base,
-            append_undetermined=(wildcards.samples_index == "index")
+            sample_df,
+            samples_index = wildcards.samples_index, 
+            fastq_folder="picard/fastq",
+            output_file=params.file_base
         )
-        print(barcodes_df)
-        print(multiplex_df)
-
-
-# ########### for the index_fastqs
-# rule picard_index_sheets:
-#     output:
-#         barcodes = "picard/index_barcodes.txt",
-#         multiplex = "picard/index_multiplex.txt"
-#     params:
-#         file_base = lambda _, output: output.barcodes.split("_")[0]
-#     run:
-#         index_file = config['samples']['index_file']
-#         # check full path or append path to scriptdir
-#         if not index_file.startswith('/'):
-#             index_file = os.path.join(snakedir, index_file)
-#         index_df = index_permutator(index_file)
-#         barcodes_df, multiplex_df = make_picard_sheets(
-#             global_dfs['index'],
-#             fastq_folder="fastq",
-#             output_file=params.file_base,
-#             # only append the Undetermined, if index_permutations are run
-#             append_undetermined=(wildcards.samples_index == "index")
-#         )
-
-#         ####### DEBUG ############
-#         print(barcodes_df)
-#         print(multiplex_df)
+        # print(barcodes_df)
+        # print(multiplex_df)
 
 
 rule extract_barcodes:
     input: 
         barcodes_sheet = "picard/{samples_index}_barcodes.txt"
     output:
-        metrix = "barcodes/{samples_index}/metrics.txt"
+        metrix = "picard/barcodes/{samples_index}/metrics.txt"
     threads:
         config['demulti']['threads']
     conda:
@@ -57,7 +32,8 @@ rule extract_barcodes:
         read_structure = config['demulti']['read_structure'],
         max_mismatch = config['demulti']['max_mismatch'],
         max_no_calls = config['demulti']['max_no_calls'],
-        min_mismatch_delta = config['demulti']['min_mismatch_delta']
+        min_mismatch_delta = config['demulti']['min_mismatch_delta'],
+        max_reads_in_ram = config['demulti']['max_reads_in_ram']
     shell:
         "picard ExtractIlluminaBarcodes -Xmx{params.mem} "
         "BASECALLS_DIR={params.basecalls} "
@@ -65,15 +41,16 @@ rule extract_barcodes:
         "OUTPUT_DIR={params.barcode_folder} METRICS_FILE={output.metrix} "
         "LANE=1 READ_STRUCTURE={params.read_structure} "
         "MAX_MISMATCHES={params.max_mismatch} MAX_NO_CALLS={params.max_no_calls} MIN_MISMATCH_DELTA={params.min_mismatch_delta} "
+        "MAX_RECORDS_IN_RAM={params.max_reads_in_ram} "
         "NUM_PROCESSORS={threads}"
 
 
 rule basecall2fastq:
     input: 
         multiplex_sheet="picard/samples_multiplex.txt",
-        metrix="barcodes/samples/metrics.txt"
+        metrix="picard/barcodes/samples/metrics.txt"
     output:
-        expand("fastq/{sample}.{read}.fastq.gz", sample=global_dfs['fastq'].index, read=reads)
+        expand("picard/fastq/{sample}.{read}.fastq.gz", sample = sample_df.query('samples_index == "samples"').index, read=picard_reads)
     threads:
         config['demulti']['threads']
     conda:
@@ -97,32 +74,32 @@ rule basecall2fastq:
         "RUN_BARCODE={params.run} FLOWCELL_BARCODE={params.flow_barcode} MACHINE_NAME={params.machine}"
 
 
-# only use this rule for index_permutations
-if config['setup']['check_all_indices']:
-    rule basecall2indexfastq:
-        input: 
-            multiplex_sheet="picard/index_multiplex.txt",
-            metrix="barcodes/index/metrics.txt"
-        output:
-            expand("fastq/index/{sample}.{read}.fastq.gz", sample=global_dfs['index']['sample'], read=reads)
-        threads:
-            config['demulti']['threads']
-        conda:
-            f"../{config['envs']}/picard-env.yml"
-        params:
-            barcode_folder = lambda _, input: os.path.dirname(input.metrix),
-            mem=config['demulti']['mem'],
-            basecalls = os.path.join(config['inputdirs'], "Data/Intensities/BaseCalls/"),
-            read_structure = config['demulti']['read_structure'],
-            run = config['setup']['Run'],
-            machine = config['setup']['Instrument'],
-            flow_barcode = config['setup']['Flowcell_barcode']
-        shell:
-            "picard IlluminaBasecallsToFastq -Xmx{params.mem} "
-            "BASECALLS_DIR={params.basecalls} "
-            "MULTIPLEX_PARAMS={input.multiplex_sheet} "
-            "BARCODES_DIR={params.barcode_folder} "
-            "LANE=1 READ_STRUCTURE={params.read_structure} "
-            "IGNORE_UNEXPECTED_BARCODES=true COMPRESS_OUTPUTS=true "
-            "NUM_PROCESSORS={threads} "
-            "RUN_BARCODE={params.run} FLOWCELL_BARCODE={params.flow_barcode} MACHINE_NAME={params.machine}"
+# # only use this rule for index_permutations
+# if config['setup']['check_all_indices']:
+rule basecall2indexfastq:
+    input: 
+        multiplex_sheet="picard/index_multiplex.txt",
+        metrix="picard/barcodes/index/metrics.txt"
+    output:
+        expand("picard/fastq/{sample}.{read}.fastq.gz", sample = sample_df.query('samples_index == "index"').index, read=picard_reads)
+    threads:
+        config['demulti']['threads']
+    conda:
+        f"../{config['envs']}/picard-env.yml"
+    params:
+        barcode_folder = lambda _, input: os.path.dirname(input.metrix),
+        mem=config['demulti']['mem'],
+        basecalls = os.path.join(config['inputdirs'], "Data/Intensities/BaseCalls/"),
+        read_structure = config['demulti']['read_structure'],
+        run = config['setup']['Run'],
+        machine = config['setup']['Instrument'],
+        flow_barcode = config['setup']['Flowcell_barcode']
+    shell:
+        "picard IlluminaBasecallsToFastq -Xmx{params.mem} "
+        "BASECALLS_DIR={params.basecalls} "
+        "MULTIPLEX_PARAMS={input.multiplex_sheet} "
+        "BARCODES_DIR={params.barcode_folder} "
+        "LANE=1 READ_STRUCTURE={params.read_structure} "
+        "IGNORE_UNEXPECTED_BARCODES=true COMPRESS_OUTPUTS=true "
+        "NUM_PROCESSORS={threads} "
+        "RUN_BARCODE={params.run} FLOWCELL_BARCODE={params.flow_barcode} MACHINE_NAME={params.machine}"

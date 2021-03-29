@@ -6,17 +6,19 @@ import re
 def get_files(config):
     '''
     retrieves the path to all the files in the sample_sheet
-    if rerun == False, it looks for fastq files
-    if rerun == True, it looks for bam files
     outputs the necessary dataframes in a df dictionary for easy access
+
+    ## trying to create ONEBIG dataframe for all data access
     '''
+
+    FASTQFOLDER="picard/fastq/"
 
     demulti=config['setup']['demulti']
 
     # folder_list
     folder_list = config['inputdirs']
     # check whether single folder or folder list
-    if (len(folder_list[0]) == 1): # that means 
+    if (len(folder_list[0]) == 1): # that means it is a string
         folder_list = [folder_list]
     
 
@@ -25,7 +27,6 @@ def get_files(config):
     # check full path or append path to scriptdir
     if not mut_sheet.startswith('/'):
         mut_sheet = os.path.join(snakedir, mut_sheet)
-
     # import the mutation sheet (with file extension check)
     if os.path.splitext(mut_sheet)[1] == ".xlsx":
         show_output(
@@ -50,17 +51,7 @@ def get_files(config):
             f"Reading sample sheet {sample_sheet}"
         )
         index_df = sheet2df(sample_sheet)
-        fastq_df = index_df.copy()
-        fastq_df['R1'] = "fastq/" + fastq_df['sample'] + ".1.fastq.gz"
-        fastq_df['R2'] = "fastq/" + fastq_df['sample'] + ".2.fastq.gz"
-        # apply the fastq paths known to be in the fastq folder
-        fastq_df = fastq_df.set_index("sample").loc[:, ['R1', 'R2']]
-        df_dict = dict(
-            fastq=fastq_df,
-            short_fastq=fastq_df,   # here all fastqs are short
-            samples=index_df,
-            muts=mut_df
-        )
+        index_df['samples_index'] = "samples"
 
         if config['setup']['check_all_indices']:
             # get the permutated index files
@@ -68,8 +59,17 @@ def get_files(config):
             if not index_file.startswith('/'):
                 index_file = os.path.join(snakedir, index_file)
             all_indices_df = index_permutator(index_file)
-            df_dict['index'] = all_indices_df
-        return df_dict
+
+        all_indices_df['samples_index'] = "index"
+
+        sample_df = pd.concat([index_df, all_indices_df])
+        # apply the fastq paths known to be in the FASTQFOLDER
+        sample_df['R1'] = FASTQFOLDER + sample_df.index + ".1.fastq.gz"
+        sample_df['sR1'] = FASTQFOLDER + sample_df.index + ".1.fastq.gz"
+        if config['setup']['PE']:
+            sample_df['R2'] = FASTQFOLDER + sample_df.index + ".2.fastq.gz"
+            sample_df['sR2'] = FASTQFOLDER + sample_df.index + ".2.fastq.gz"
+        return mut_df, sample_df
 
 
     #### GO on for no demulti
@@ -85,7 +85,6 @@ def get_files(config):
             for file in files:
                 if '.fastq.' in file and '.md5' not in file and 'trim' not in file and 'sub' not in file:
                     fastq_list.append(os.path.join(folder, file))
-                    short_list.append(file)
 
     def get_fastq_paths(row, fastq_list=None):
         '''
@@ -97,24 +96,26 @@ def get_files(config):
         read2 = 'R2'
         index = config['samples']['umi_barcode'] if config['samples']['umi_barcode'] else None
 
-        for file in fastq_list:
+        for f in fastq_list:
             # get the basename
-            base_file = os.path.basename(file)
-            if  base_file.startswith(f"{row.name}_"):
+            base_file = os.path.basename(f)
+            if base_file.startswith(f"{row.name}_"):
                 if index:
                     if f'_{index}' in base_file:
-                        row['index'] = file
+                        row['index'] = f
                 elif f'_{read1}_' in base_file:
-                    row['R1'] = file
+                    row['R1'] = f
+                    row['sR1'] = base_file
                 elif f'_{read2}_' in base_file:
-                    row['R2'] = file
-        cols = ['R1', 'R2']
+                    row['R2'] = f
+                    row['sR2'] = base_file
+        cols = ['R1', 'R2', 'sR1', 'sR2']
         if config['samples']['umi_barcode']:
             cols.append(onfig['samples']['umi_barcode'])
         return row.reindex(cols)
 
     fastq_df = samples.apply(get_fastq_paths, axis=1, fastq_list=fastq_list)
-    short_df = samples.apply(get_fastq_paths, axis=1, fastq_list=short_list)
+
 
     # ########## DEBUG #################
     # print(short_df)
@@ -137,31 +138,30 @@ def get_fastq(w):
 
 
 # ###################### FASTQC ###########################
-def get_fastqc_list(_):
+def get_fastqc_list(w):
     '''
     returns the complete list of required fastqc files depending on trim option
     '''
-    if config['setup']['demulti']:
-        reads = [".1.",".2."] if config['setup']['PE'] else [".1."]
-    else:
-        reads = ['R1', 'R2'] if config['setup']['PE'] else ['R1']
+    reads = ['R1', 'R2'] if config['setup']['PE'] else ['R1']
     
-    fastqc_list = [f"fastqc/{s}_{r}_fastqc.zip" for s in global_dfs['short_fastq'].index for r in reads]
+    si = w.samples_index
+    fastqc_list = [f"fastqc/{s}_{r}_fastqc.zip" for s in sample_df.query('samples_index == @si').index for r in reads]
     return fastqc_list
 
 
 # ###################### ubamXT #########################################
 def get_FastqToSam_input(w):
     '''
-    retrieve either ...fastq or fastq.trim pairs depending on config:trim:trimming value for bwa alignment
+    get the right fastq input for ubamXT
     '''
 
-    reads = ['R1', 'R2']
+    reads = ['R1', 'R2'] if config['setup']['PE'] else ['R1']
+    
     # add the index read, if UMIs are involved
     if config['setup']['UMI']:
         reads.append('index')
 
-    return global_dfs['fastq'].loc[w.sample, reads]
+    return sample_df.loc[w.sample, reads]
 
 
 # ############## INDEL REALIGNER ######################
