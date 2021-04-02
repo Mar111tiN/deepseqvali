@@ -19,17 +19,17 @@
   }, 
   "extract_barcodes": {
     "t": "00:15",
-    "mem": 300,
+    "mem": 1000,
     "name": "{rule}:{wildcards.samples_index}"
   },
   "basecall2fastq": {
     "t": "00:45",
-    "mem": 500,
+    "mem": 2000,
     "name": "{rule}"
   },
   "basecall2indexfastq": {
     "t": "00:45",
-    "mem": 500,
+    "mem": 2000,
     "name": "{rule}"
   },
   "fastqc": {

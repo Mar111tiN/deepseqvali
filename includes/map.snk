@@ -68,19 +68,6 @@ rule make_ref_genome:
         "samtools faidx {params.refgen}"
 
 
-def get_clip(_):
-    '''
-    if UMI-tools is active, do not clip overlap in order to facilitate UMI-grouping
-    overlap clipping can then proceed after UMI-filtering
-    '''
-
-    if config['UMI_filter']['run']:
-        return "FALSE"
-    elif config['alignment']['clip_overlap']:
-        return "TRUE"
-    return "FALSE"
-
-
 rule map_ubam:
     input:
         bam = "ubam/{sample}.bam",
@@ -93,7 +80,6 @@ rule map_ubam:
     params:
         bwa_threads = config['alignment']['threads'],
         refgen = full_path('genome'),
-        clip_overlap = get_clip,
         alignment_strategy = config['alignment']['strategy'],
         deflater = "use_jdk_deflater=true use_jdk_inflater=true" if config['alignment']['use_jdk'] else ""
     shell:
@@ -114,7 +100,7 @@ rule map_ubam:
         "CREATE_INDEX=TRUE "
         "ADD_MATE_CIGAR=TRUE "
         "CLIP_ADAPTERS=FALSE "  # should this be true?
-        "CLIP_OVERLAPPING_READS={params.clip_overlap} "
+        "CLIP_OVERLAPPING_READS=False "
         "INCLUDE_SECONDARY_ALIGNMENTS=true "
         "MAX_GAPS=-1 "
         "PRIMARY_ALIGNMENT_STRATEGY={params.alignment_strategy} "
