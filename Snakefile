@@ -1,7 +1,7 @@
 import yaml
 
 # ############ SETUP ##############################
-configfile: "configs/config_Lauf3.yaml"
+configfile: "configs/config_Lauf2.yaml"
 # configfile: "configs/config.json"
 workdir: config['workdir']
 snakedir = os.path.dirname(workflow.snakefile)
@@ -48,6 +48,7 @@ rule all:
         # expand("fastq/{sample}_{read}.fastq.gz", sample=sample_df.index, read=reads),
         "QC/index-fastQC.html",
         "QC/samples-fastQC.html",
+        expand("mapped/{sample}.bam", sample=sample_df.index),
         # expand("IGVnav/{sample}.txt", sample=sample_df.index),
         # expand("IGVnav/{sample}.offTarget.txt", sample=sample_df.index),
         "results.txt"

@@ -50,8 +50,8 @@ def get_files(config):
         show_output(
             f"Reading sample sheet {sample_sheet}"
         )
-        index_df = sheet2df(sample_sheet)
-        index_df['samples_index'] = "samples"
+        sample_df = sheet2df(sample_sheet)
+        sample_df['samples_index'] = "samples"
 
         if config['setup']['check_all_indices']:
             # get the permutated index files
@@ -60,9 +60,9 @@ def get_files(config):
                 index_file = os.path.join(snakedir, index_file)
             all_indices_df = index_permutator(index_file)
 
-        all_indices_df['samples_index'] = "index"
+            all_indices_df['samples_index'] = "index"
 
-        sample_df = pd.concat([index_df, all_indices_df])
+            sample_df = pd.concat([sample_df, all_indices_df])
         # apply the fastq paths known to be in the FASTQFOLDER
         sample_df['R1'] = FASTQFOLDER + sample_df.index + ".1.fastq.gz"
         sample_df['sR1'] = FASTQFOLDER + sample_df.index + ".1.fastq.gz"
